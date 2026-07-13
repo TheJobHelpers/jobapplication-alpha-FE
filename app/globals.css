@@ -39,12 +39,27 @@
   --accent-strong: #4f46e5;
 }
 
+/* Client portal — light default. Accent is emerald-500 (not 400) so primary
+   buttons keep white-text contrast on light surfaces. */
 [data-portal="client"] {
-  --accent: #34d399; /* emerald-400 */
-  --accent-strong: #10b981;
+  --background: #f6f6f8;
+  --foreground: #18181b; /* zinc-900 */
   --panel: #ffffff;
   --panel-border: #e7e7ec;
   --muted: #52525b; /* zinc-600 — readable on light */
+  --accent: #10b981; /* emerald-500 */
+  --accent-strong: #059669; /* emerald-600 */
+}
+
+/* Client portal — dark toggle. */
+[data-portal="client"][data-theme="dark"] {
+  --background: #0b0b0f;
+  --foreground: #e6e6ec;
+  --panel: #121218;
+  --panel-border: #26262f;
+  --muted: #a1a1aa;
+  --accent: #34d399; /* emerald-400 reads better on dark */
+  --accent-strong: #10b981;
 }
 
 @theme inline {

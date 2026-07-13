@@ -1,11 +1,8 @@
-import { ComingSoon } from "@/components/admin/coming-soon";
+import { SettingsView } from "@/components/admin/settings-view";
+import { api } from "@/lib/api";
 
-export default function SettingsPage() {
-  return (
-    <ComingSoon
-      area="Admin"
-      title="Settings & audit"
-      blurb="Low-frequency, admin-only: team and roles, per-client quotas, enabled job sources, and the audit log. Managers see operations; only admins see this area."
-    />
-  );
+// Admin — settings & audit. Admin-only; the view gates by the current role.
+export default async function SettingsPage() {
+  const [team, audit] = await Promise.all([api.getTeam(), api.getAuditLog()]);
+  return <SettingsView team={team} audit={audit} />;
 }

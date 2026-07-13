@@ -9,7 +9,7 @@
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { Answers, CQFO_STEPS, Step, isStepComplete } from "@/lib/cqfo";
 
-const MOCK_CLIENT = { name: "Amara Silva", tier: "Tier 2" };
+const MOCK_CLIENT = { name: "Ashley Bennett", tier: "Tier 2" };
 
 export default function QuestionnairePage({
   params,

@@ -1,33 +1,65 @@
 "use client";
 
 // Internal Portal shell — flat ops console (DESIGN.md). Fixed nav rail with the
-// new IA (Today / Clients / Pipeline / Admin), plus a command-palette stub
-// (Ctrl+K) and a search-tray stub (S). No glass, no gradient, no pulsing logo.
-// The overlays are stubs today; they establish the keyboard model early so
-// screens can assume it exists.
+// role-aware IA (Today / Clients / Pipeline / Team / Admin), a command-palette
+// stub (Ctrl+K), and a global Quick-Add job slide-over (S). Team + Admin hide
+// for JA/JS members. A "viewing as" switcher makes role differences visible.
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { QuickAdd } from "@/components/shell/quick-add";
+import { useCurrentUser } from "@/components/shell/role-context";
 import { cn } from "@/lib/cn";
+import { STAFF_SESSION_KEY, writeSession } from "@/lib/session";
+import {
+  canSeeAdmin,
+  canSeeTeam,
+  roleLabel,
+  USER_PRESETS,
+  type CurrentUser,
+} from "@/lib/permissions";
 
-type NavItem = { href: string; label: string; icon: React.ReactNode };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  show?: (u: CurrentUser) => boolean;
+};
 
 const NAV: NavItem[] = [
   { href: "/admin", label: "Today", icon: <IconToday /> },
   { href: "/admin/clients", label: "Clients", icon: <IconClients /> },
   { href: "/admin/pipeline", label: "Pipeline", icon: <IconPipeline /> },
-  { href: "/admin/settings", label: "Admin", icon: <IconAdmin /> },
+  { href: "/admin/team", label: "Team", icon: <IconTeam />, show: canSeeTeam },
+  { href: "/admin/settings", label: "Admin", icon: <IconAdmin />, show: canSeeAdmin },
 ];
 
 function isActive(pathname: string, href: string) {
   return href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
 }
 
+const noopSubscribe = () => () => {};
+// Modifier hint: "⌘K" on Mac, "Ctrl K" elsewhere (and during SSR).
+function useCmdLabel() {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => (/Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) ? "⌘K" : "Ctrl K"),
+    () => "Ctrl K",
+  );
+}
+
 export function InternalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, setUser } = useCurrentUser();
   const [palette, setPalette] = useState(false);
-  const [tray, setTray] = useState(false);
+  const [quickAdd, setQuickAdd] = useState(false);
+
+  // The Ctrl/Cmd+K handler is cross-platform; only the hint label differs.
+  // Read the platform via useSyncExternalStore so the server snapshot is a stable
+  // "Ctrl K" (no hydration mismatch) and Mac clients swap to "⌘K" after hydration.
+  const cmdLabel = useCmdLabel();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -36,6 +68,7 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
         el &&
         (el.tagName === "INPUT" ||
           el.tagName === "TEXTAREA" ||
+          el.tagName === "SELECT" ||
           el.isContentEditable);
 
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -45,21 +78,22 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
       }
       if (e.key === "Escape") {
         setPalette(false);
-        setTray(false);
+        setQuickAdd(false);
         return;
       }
       if (!typing && !e.metaKey && !e.ctrlKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        setTray((v) => !v);
+        setQuickAdd((v) => !v);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const nav = NAV.filter((item) => !item.show || item.show(user));
+
   return (
     <div className="flex min-h-screen">
-      {/* Nav rail */}
       <aside className="fixed inset-y-0 left-0 flex w-56 flex-col border-r border-panel-border bg-panel">
         <div className="flex items-center gap-2.5 px-4 py-4">
           <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--accent)] text-[13px] font-bold text-white">
@@ -74,7 +108,7 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-0.5 px-2 py-2">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const active = isActive(pathname, item.href);
             return (
               <Link
@@ -88,9 +122,7 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
                     : "text-muted hover:bg-zinc-800/40 hover:text-zinc-200",
                 )}
               >
-                <span
-                  className={active ? "text-[var(--accent)]" : "text-zinc-500"}
-                >
+                <span className={active ? "text-[var(--accent)]" : "text-zinc-500"}>
                   {item.icon}
                 </span>
                 {item.label}
@@ -101,11 +133,11 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
 
         <div className="space-y-2 px-2 py-3">
           <button
-            onClick={() => setTray(true)}
+            onClick={() => setQuickAdd(true)}
             className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-[12px] text-muted hover:bg-zinc-800/40 hover:text-zinc-200"
           >
             <span className="flex items-center gap-2">
-              <IconSearch /> Search
+              <IconPlus /> Add job
             </span>
             <Kbd>S</Kbd>
           </button>
@@ -116,32 +148,50 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
             <span className="flex items-center gap-2">
               <IconCommand /> Command
             </span>
-            <Kbd>⌘K</Kbd>
+            <Kbd>{cmdLabel}</Kbd>
           </button>
-          <div className="mt-1 flex items-center gap-2.5 border-t border-panel-border px-1 pt-3">
-            <span className="grid h-7 w-7 place-items-center rounded-full bg-zinc-800 text-[11px] font-semibold text-zinc-300">
-              OA
-            </span>
-            <div className="leading-tight">
-              <p className="text-[12px] font-medium text-zinc-200">Ops Admin</p>
-              <p className="text-[10px] uppercase tracking-[0.1em] text-muted">
-                admin
-              </p>
-            </div>
+
+          <button
+            onClick={() => {
+              writeSession(STAFF_SESSION_KEY, null);
+              router.replace("/admin/login");
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] text-muted hover:bg-zinc-800/40 hover:text-zinc-200"
+          >
+            <IconLogout /> Log out
+          </button>
+
+          {/* Viewing-as switcher — makes role differences visible */}
+          <div className="mt-1 border-t border-panel-border px-1 pt-3">
+            <label className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
+              Viewing as
+            </label>
+            <select
+              value={user.id}
+              onChange={(e) => {
+                const next = USER_PRESETS.find((p) => p.id === e.target.value);
+                if (next) setUser(next);
+              }}
+              className="mt-1 w-full rounded-md border border-panel-border bg-panel px-2 py-1.5 text-[12px] text-zinc-200 outline-none focus:border-zinc-600"
+            >
+              {USER_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} · {roleLabel(p)}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </aside>
 
-      {/* Main */}
       <main className="ml-56 flex-1">{children}</main>
 
       {palette && <CommandPaletteStub onClose={() => setPalette(false)} />}
-      {tray && <SearchTrayStub onClose={() => setTray(false)} />}
+      {quickAdd && <QuickAdd onClose={() => setQuickAdd(false)} />}
     </div>
   );
 }
 
-// ── Stubs ─────────────────────────────────────────────────────────────
 function CommandPaletteStub({ onClose }: { onClose: () => void }) {
   return (
     <div
@@ -162,32 +212,6 @@ function CommandPaletteStub({ onClose }: { onClose: () => void }) {
           land here.
         </div>
       </div>
-    </div>
-  );
-}
-
-function SearchTrayStub({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onClick={onClose}>
-      <aside
-        className="h-full w-[360px] border-l border-panel-border bg-panel p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold">Search</h2>
-          <button
-            onClick={onClose}
-            className="text-[12px] text-muted hover:text-zinc-200"
-          >
-            Esc
-          </button>
-        </div>
-        <p className="mt-4 text-[12px] leading-relaxed text-muted">
-          Searches run in the background on a durable queue and stream results
-          into the client they were aimed at. Live progress will show here.
-        </p>
-        <p className="mt-3 text-[11px] text-zinc-500">Coming soon.</p>
-      </aside>
     </div>
   );
 }
@@ -242,6 +266,14 @@ function IconPipeline() {
     </>,
   );
 }
+function IconTeam() {
+  return svg(
+    <>
+      <circle cx="12" cy="7" r="3.2" />
+      <path d="M5 21a7 7 0 0 1 14 0" />
+    </>,
+  );
+}
 function IconAdmin() {
   return svg(
     <>
@@ -250,16 +282,19 @@ function IconAdmin() {
     </>,
   );
 }
-function IconSearch() {
-  return svg(
-    <>
-      <circle cx="11" cy="11" r="7" />
-      <path d="m21 21-4.3-4.3" />
-    </>,
-  );
+function IconPlus() {
+  return svg(<path d="M12 5v14M5 12h14" />);
 }
 function IconCommand() {
   return svg(
     <path d="M9 3a3 3 0 1 0 3 3v12a3 3 0 1 0-3-3h12a3 3 0 1 0-3 3V6a3 3 0 1 0 3 3H6" />,
+  );
+}
+function IconLogout() {
+  return svg(
+    <>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5M21 12H9" />
+    </>,
   );
 }

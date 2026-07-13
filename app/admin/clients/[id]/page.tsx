@@ -1,18 +1,7 @@
-import { notFound } from "next/navigation";
-import { ClientWorkspace } from "@/components/admin/client-workspace";
-import { api } from "@/lib/api";
+import { ClientWorkspaceLoader } from "@/components/admin/client-workspace-loader";
 
-// Client Workspace route. Server-fetches the client + their jobs, then hands off
-// to the interactive workspace. Reached from Today items and the Clients roster.
-export default async function ClientWorkspacePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const client = await api.getClient(id);
-  if (!client) notFound();
-
-  const jobs = await api.getJobsForClient(id);
-  return <ClientWorkspace client={client} initialJobs={jobs} />;
+// Client Workspace route. Resolves via the local store (UI-created clients) then
+// fixtures on the client, so newly-onboarded clients open too.
+export default function ClientWorkspacePage() {
+  return <ClientWorkspaceLoader />;
 }

@@ -18,6 +18,20 @@ export interface TeamMember {
   memberType?: MemberType; // only meaningful for role === "team_member"
   activeClients: number; // current owned-client load
   capacity: number; // max clients before overloaded
+  sourcedThisWeek?: number; // JS members: jobs added/imported this week
+}
+
+// Derived per-member workload for the Team page (manager/admin oversight).
+export interface TeamWorkload {
+  member: TeamMember;
+  clientCount: number;
+  quotaFilled: number;
+  quotaTarget: number;
+  activeJobs: number;
+  applied: number;
+  interviewing: number;
+  offers: number;
+  stale: number;
 }
 
 // ── Clients ───────────────────────────────────────────────────────────
@@ -45,6 +59,27 @@ export interface ClientPreferences {
   sources: JobSource[]; // sources enabled for this client
 }
 
+// The onboarding questionnaire (CQFO) is a tracked milestone of its own.
+export type QuestionnaireStatus =
+  | "not_sent"
+  | "sent"
+  | "in_progress"
+  | "completed";
+
+export interface QuestionnaireState {
+  status: QuestionnaireStatus;
+  token?: string; // public link token (/q/[token])
+  sentAt?: string;
+  completedAt?: string;
+}
+
+export const QUESTIONNAIRE_LABEL: Record<QuestionnaireStatus, string> = {
+  not_sent: "Not sent",
+  sent: "Sent",
+  in_progress: "In progress",
+  completed: "Completed",
+};
+
 export interface Client {
   id: string;
   name: string;
@@ -56,6 +91,7 @@ export interface Client {
   filledApps: number; // applications assigned so far this week
   approvalRequired: boolean; // client must approve sourced jobs before applying
   preferences?: ClientPreferences;
+  questionnaire?: QuestionnaireState; // default; live changes tracked in the store
 }
 
 // ── Application jobs & the workflow state machine ─────────────────────
@@ -88,6 +124,10 @@ export type RejectCategory =
   | "already_applied"
   | "other";
 
+// How a job entered the portal. Search is gone; jobs are added or imported
+// (API / extension / agent come later) — see vault note 09.
+export type AddedVia = "manual" | "import" | "api" | "extension" | "agent";
+
 export interface ApplicationJob {
   id: string;
   clientId: string;
@@ -96,15 +136,25 @@ export interface ApplicationJob {
   title: string;
   location: string;
   salary?: string;
-  matchScore: number; // 0..1, the signature metric
+  matchScore?: number; // 0..1 — optional now (jobs are added, not scored by search)
   status: JobStatus;
   assignedToId?: string;
   assignedToName?: string;
   // Reasons are first-class: rejected + blocked always carry one (DESIGN.md).
   rejectCategory?: RejectCategory;
   reason?: string;
+  addedVia?: AddedVia;
   postedAt?: string; // ISO date
   updatedAt: string; // ISO date
+}
+
+// Audit trail entry (Admin → audit log).
+export interface AuditEntry {
+  id: string;
+  at: string; // ISO datetime
+  actor: string;
+  action: string;
+  entity: string;
 }
 
 // ── Status metadata — one truth, two views ───────────────────────────
@@ -194,24 +244,6 @@ export const REJECT_CATEGORY_LABEL: Record<RejectCategory, string> = {
   other: "Other",
 };
 
-// ── Today work queue ──────────────────────────────────────────────────
-// The internal home is a work queue, not a stats dashboard (06 UX).
-export type Urgency = "danger" | "warning" | "positive" | "info";
-
-export type TodayKind =
-  | "quota" // client below weekly quota
-  | "status_update" // applications needing a status refresh
-  | "search_done" // a finished background search
-  | "intake" // new client / questionnaire milestone
-  | "blocked"; // a blocked job needing manager/client input
-
-export interface TodayItem {
-  id: string;
-  kind: TodayKind;
-  urgency: Urgency; // drives the row's left urgency stripe
-  title: string;
-  detail: string;
-  meta?: string; // right-aligned context, e.g. "Week ends in 2 days"
-  clientId?: string;
-  action?: { label: string; href?: string };
-}
+// The Today home is a role-aware overview + a derived "Needs attention" triage
+// (see lib/insights.ts and lib/attention.ts) — computed from jobs/clients, not a
+// static list, so it scales with the data.

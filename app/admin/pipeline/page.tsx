@@ -1,11 +1,8 @@
-import { ComingSoon } from "@/components/admin/coming-soon";
+import { PipelineBoard } from "@/components/admin/pipeline-board";
+import { api } from "@/lib/api";
 
-export default function PipelinePage() {
-  return (
-    <ComingSoon
-      area="Pipeline"
-      title="Application pipeline"
-      blurb="Two lenses: By client (all active applications by stage) and, for managers and admins, By team member (each member's client load, quota fill, and progress)."
-    />
-  );
+// Pipeline — cross-client Kanban of every active application.
+export default async function PipelinePage() {
+  const jobs = await api.getJobs();
+  return <PipelineBoard jobs={jobs} />;
 }

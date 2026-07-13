@@ -54,7 +54,16 @@ Chips: pill, 10px semibold, background = status color at ~18% opacity, text = st
 4. **Buttons** — primary = portal accent + white text + 600. Secondary = bordered ghost. Reject/destructive = rose outlined, filled only at confirm. One primary per view.
 5. **Row actions live on the row** — queue actions are one click, on the row. No kebab menus for primary actions.
 6. **One truth, two views** — statuses render from the same state machine in both portals. Internal wording may be technical ("Blocked"), client wording humane ("Action needed"); the state is identical.
-7. **Keyboard** — internal: Ctrl+K palette, S = search tray. Questionnaire: Enter advances, A/B/C selects.
+7. **Keyboard** — internal: Ctrl+K palette, S = Quick-Add job. Questionnaire: Enter advances, A/B/C selects.
+
+## Sourcing model (no in-portal search)
+
+Job search is **not** a portal feature. Jobs are **added** (manual entry) or
+**imported** (bulk paste / CSV) into a client's shortlist; API sync, a browser
+extension, and agentic sourcing come later. There is no search page and no search
+tray — the global **S** shortcut opens **Quick-Add job**. See planning vault note
+`09 Internal Portal Pages.md`. `matchScore` is therefore optional and shown only
+when a job has one.
 
 ## Job workflow states (for UI)
 

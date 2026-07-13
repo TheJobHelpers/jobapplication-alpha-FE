@@ -2,24 +2,40 @@
 
 // Client Workspace — the core internal screen (06 UX). The unit of work is a
 // client-week: get this client their N jobs and keep applications moving.
-// Search lives inside the workspace, pre-filled from the client's preferences;
-// results stream into the shortlist, ranked by match score. Tick good ones →
-// Assign → the quota bar fills. All state is local mock behavior for now.
+// Search is NOT a portal feature (note 09) — jobs are ADDED or IMPORTED via the
+// right-hand panel, then sent to review / assigned. Role-aware: members edit
+// only owned clients; managers assign; JS/owners send to review.
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { AddJobsForm } from "@/components/admin/add-jobs-form";
+import {
+  effectiveQuestionnaire,
+  genToken,
+  QuestionnairePanel,
+} from "@/components/admin/questionnaire-panel";
+import { SourcingPreferences } from "@/components/admin/sourcing-preferences";
+import { useCurrentUser } from "@/components/shell/role-context";
+import { useStore } from "@/components/shell/store-context";
 import { Button } from "@/components/ui/button";
 import { MatchScore } from "@/components/ui/match-score";
 import { Panel } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
 import {
-  api,
-  JOB_SOURCE_LABEL,
+  QUESTIONNAIRE_LABEL,
   type ApplicationJob,
   type Client,
-  type JobSource,
+  type ClientStage,
   type JobStatus,
+  type QuestionnaireStatus,
 } from "@/lib/api";
+import {
+  canAddJobs,
+  canAssign,
+  canEditClient,
+  canManageStage,
+} from "@/lib/permissions";
+import { CLIENT_STAGES, stageColor } from "@/lib/stage";
 
 const SHORTLIST_STATUSES = new Set<JobStatus>([
   "sourced",
@@ -38,7 +54,7 @@ const ACTIVE_STATUSES = new Set<JobStatus>([
 const HISTORY_STATUSES = new Set<JobStatus>(["rejected", "closed", "expired"]);
 
 const byScore = (a: ApplicationJob, b: ApplicationJob) =>
-  b.matchScore - a.matchScore;
+  (b.matchScore ?? 0) - (a.matchScore ?? 0);
 
 type Tab = "week" | "history" | "profile";
 
@@ -49,7 +65,14 @@ export function ClientWorkspace({
   client: Client;
   initialJobs: ApplicationJob[];
 }) {
-  const [tab, setTab] = useState<Tab>("week");
+  const { user } = useCurrentUser();
+  const { stageById, setStage, questionnaireById, sendQuestionnaire } = useStore();
+  const editable = canEditClient(user, client.ownerId);
+  const managerish = canAssign(user);
+  const stage = stageById[client.id] ?? client.stage;
+  const questionnaire = effectiveQuestionnaire(client, questionnaireById);
+
+  const [tab, setTab] = useState<Tab>("profile");
   const [week, setWeek] = useState(29);
 
   const [shortlist, setShortlist] = useState<ApplicationJob[]>(() =>
@@ -67,18 +90,6 @@ export function ClientWorkspace({
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const [filled, setFilled] = useState(client.filledApps);
 
-  // Search panel
-  const prefs = client.preferences;
-  const [sources, setSources] = useState<JobSource[]>(prefs?.sources ?? []);
-  const [searching, setSearching] = useState(false);
-  const [foundCount, setFoundCount] = useState<number | null>(null);
-  const timers = useRef<number[]>([]);
-
-  useEffect(() => {
-    const t = timers.current;
-    return () => t.forEach((id) => window.clearTimeout(id));
-  }, []);
-
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -88,10 +99,17 @@ export function ClientWorkspace({
     });
   }, []);
 
-  const toggleSource = useCallback((s: JobSource) => {
-    setSources((prev) =>
-      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
-    );
+  const handleAdd = useCallback((jobs: ApplicationJob[]) => {
+    setShortlist((prev) => {
+      const have = new Set(prev.map((j) => j.id));
+      const fresh = jobs.filter((j) => !have.has(j.id));
+      setNewIds((n) => {
+        const next = new Set(n);
+        fresh.forEach((j) => next.add(j.id));
+        return next;
+      });
+      return [...prev, ...fresh].sort(byScore);
+    });
   }, []);
 
   const assignSelected = useCallback(() => {
@@ -111,33 +129,19 @@ export function ClientWorkspace({
     setSelected(new Set());
   }, [shortlist, selected, client.ownerId, client.ownerName]);
 
-  const runSearch = useCallback(async () => {
-    setSearching(true);
-    setFoundCount(null);
-    const candidates = await api.runSearch(client.id);
-    const existing = new Set(shortlist.map((j) => j.id));
-    const fresh = candidates.filter((c) => !existing.has(c.id));
-    if (fresh.length === 0) {
-      setSearching(false);
-      setFoundCount(0);
-      return;
-    }
-    // Stream results in one at a time to mimic a live background search.
-    fresh.forEach((job, i) => {
-      const t = window.setTimeout(
-        () => {
-          setShortlist((prev) => [...prev, job].sort(byScore));
-          setNewIds((prev) => new Set(prev).add(job.id));
-          if (i === fresh.length - 1) {
-            setSearching(false);
-            setFoundCount(fresh.length);
-          }
-        },
-        (i + 1) * 450,
-      );
-      timers.current.push(t);
-    });
-  }, [client.id, shortlist]);
+  const sendToReview = useCallback(() => {
+    if (selected.size === 0) return;
+    setShortlist((prev) =>
+      prev
+        .map((j) =>
+          selected.has(j.id) && j.status === "sourced"
+            ? { ...j, status: "client_review" as JobStatus }
+            : j,
+        )
+        .sort(byScore),
+    );
+    setSelected(new Set());
+  }, [selected]);
 
   const selectedCount = selected.size;
 
@@ -157,16 +161,39 @@ export function ClientWorkspace({
             <span className="text-[11px] uppercase tracking-[0.1em] text-muted">
               {client.tier}
             </span>
-            <StageChip stage={client.stage} />
+            <StageControl
+              stage={stage}
+              editable={canManageStage(user)}
+              onChange={(s) => setStage(client.id, s)}
+            />
+            {!editable && (
+              <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-400">
+                View only
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-5">
+            <span className="text-[11px] text-muted">
+              Owner <span className="text-zinc-300">{client.ownerName}</span>
+            </span>
             <QuotaMeter filled={filled} target={client.quotaApps} />
             <WeekSelector week={week} onChange={setWeek} />
           </div>
         </div>
       </header>
 
-      {/* Body: content + search panel */}
+      {/* Onboarding checklist — visible while the client is being set up */}
+      {stage === "onboarding" && (
+        <OnboardingBanner
+          client={client}
+          qStatus={questionnaire.status}
+          canManage={canManageStage(user)}
+          onSend={() => sendQuestionnaire(client.id, genToken(client.id))}
+          onActivate={() => setStage(client.id, "active")}
+        />
+      )}
+
+      {/* Body */}
       <div className="flex flex-1 flex-col lg:flex-row">
         <div className="min-w-0 flex-1 px-8 py-6">
           <Tabs tab={tab} onChange={setTab} historyCount={history.length} />
@@ -177,6 +204,7 @@ export function ClientWorkspace({
               assigned={assigned}
               selected={selected}
               newIds={newIds}
+              selectable={editable}
               onToggle={toggleSelect}
             />
           )}
@@ -184,28 +212,48 @@ export function ClientWorkspace({
           {tab === "profile" && <Profile client={client} />}
         </div>
 
+        {/* Right panel: Add jobs (search is gone) */}
         <aside className="w-full shrink-0 border-t border-panel-border lg:w-[340px] lg:border-l lg:border-t-0">
-          <SearchPanel
-            client={client}
-            sources={sources}
-            onToggleSource={toggleSource}
-            searching={searching}
-            foundCount={foundCount}
-            onRun={runSearch}
-          />
+          <div className="p-5 lg:sticky lg:top-0">
+            <h2 className="text-[13px] font-semibold">Add jobs</h2>
+            <p className="mt-1 text-[11.5px] text-muted">
+              Sourced outside the portal — add one or import a batch.
+            </p>
+            <div className="mt-4">
+              {editable && canAddJobs(user) ? (
+                <AddJobsForm
+                  clientId={client.id}
+                  clientName={client.name}
+                  onAdd={handleAdd}
+                />
+              ) : (
+                <p className="text-[12px] text-zinc-500">
+                  You can view this client but not edit it. Only the owner (
+                  {client.ownerName}) and managers can add jobs.
+                </p>
+              )}
+            </div>
+          </div>
         </aside>
       </div>
 
-      {/* Assign action bar */}
-      {selectedCount > 0 && (
-        <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-panel-border bg-panel px-8 py-3">
+      {/* Action bar */}
+      {editable && selectedCount > 0 && (
+        <div className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t border-panel-border bg-panel px-8 py-3">
           <p className="text-[13px] text-muted">
             <span className="font-semibold text-zinc-100">{selectedCount}</span>{" "}
             selected
           </p>
-          <Button variant="primary" onClick={assignSelected}>
-            Assign {selectedCount} to this week
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={sendToReview}>
+              Send to review
+            </Button>
+            {managerish && (
+              <Button variant="primary" onClick={assignSelected}>
+                Assign {selectedCount} to this week
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -218,12 +266,14 @@ function ThisWeek({
   assigned,
   selected,
   newIds,
+  selectable,
   onToggle,
 }: {
   shortlist: ApplicationJob[];
   assigned: ApplicationJob[];
   selected: Set<string>;
   newIds: Set<string>;
+  selectable: boolean;
   onToggle: (id: string) => void;
 }) {
   return (
@@ -236,7 +286,7 @@ function ThisWeek({
         />
         <Panel className="mt-3 divide-y divide-panel-border overflow-hidden">
           {shortlist.length === 0 ? (
-            <Empty>Run a search to source jobs for this week.</Empty>
+            <Empty>Add or import jobs to build this week&apos;s shortlist.</Empty>
           ) : (
             shortlist.map((job) => (
               <ShortlistRow
@@ -244,6 +294,7 @@ function ThisWeek({
                 job={job}
                 checked={selected.has(job.id)}
                 isNew={newIds.has(job.id)}
+                selectable={selectable}
                 onToggle={() => onToggle(job.id)}
               />
             ))
@@ -269,21 +320,30 @@ function ShortlistRow({
   job,
   checked,
   isNew,
+  selectable,
   onToggle,
 }: {
   job: ApplicationJob;
   checked: boolean;
   isNew: boolean;
+  selectable: boolean;
   onToggle: () => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-zinc-800/30">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onToggle}
-        className="h-4 w-4 shrink-0 accent-[var(--accent)]"
-      />
+    <label
+      className={
+        "flex items-center gap-3 px-4 py-3 transition-colors " +
+        (selectable ? "cursor-pointer hover:bg-zinc-800/30" : "")
+      }
+    >
+      {selectable && (
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onToggle}
+          className="h-4 w-4 shrink-0 accent-[var(--accent)]"
+        />
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-[13px] font-medium text-zinc-100">
@@ -300,6 +360,7 @@ function ShortlistRow({
           {job.salary ? ` · ${job.salary}` : ""}
         </p>
       </div>
+      <StatusChip status={job.status} className="shrink-0" />
       <MatchScore score={job.matchScore} className="shrink-0" />
     </label>
   );
@@ -320,7 +381,6 @@ function ActiveRow({ job }: { job: ApplicationJob }) {
         <MatchScore score={job.matchScore} className="shrink-0" />
         <StatusChip status={job.status} className="shrink-0" />
       </div>
-      {/* Reasons are first-class (DESIGN.md rule 3) */}
       {job.reason && job.status === "blocked" && (
         <p className="mt-1.5 text-[11.5px] text-status-blocked">{job.reason}</p>
       )}
@@ -330,8 +390,7 @@ function ActiveRow({ job }: { job: ApplicationJob }) {
 
 // ── History ───────────────────────────────────────────────────────────
 function History({ jobs }: { jobs: ApplicationJob[] }) {
-  if (jobs.length === 0)
-    return <Empty className="mt-6">No history yet.</Empty>;
+  if (jobs.length === 0) return <Empty className="mt-6">No history yet.</Empty>;
   return (
     <Panel className="mt-6 divide-y divide-panel-border overflow-hidden">
       {jobs.map((job) => (
@@ -360,129 +419,26 @@ function History({ jobs }: { jobs: ApplicationJob[] }) {
 
 // ── Profile ───────────────────────────────────────────────────────────
 function Profile({ client }: { client: Client }) {
-  const p = client.preferences;
   return (
-    <div className="mt-6 grid gap-4 sm:grid-cols-2">
+    <div className="mt-6 space-y-4">
       <Panel className="p-5">
-        <SectionLabel>Account</SectionLabel>
-        <Field label="Owner" value={client.ownerName} />
-        <Field label="Tier" value={client.tier} />
-        <Field label="Stage" value={client.stage} />
-        <Field label="Weekly quota" value={`${client.quotaApps} applications`} />
-        <Field
-          label="Client approval"
-          value={client.approvalRequired ? "Required" : "Off"}
-        />
+        <QuestionnairePanel client={client} />
       </Panel>
-      <Panel className="p-5">
-        <SectionLabel>Preferences</SectionLabel>
-        {p ? (
-          <>
-            <Field label="Target titles" value={p.titles.join(", ")} />
-            <Field label="Locations" value={p.locations.join(", ")} />
-            <Field label="Work type" value={p.workType} />
-            <Field label="Salary" value={salaryRange(p.salaryMin, p.salaryMax)} />
-            <Field
-              label="Sources"
-              value={p.sources.map((s) => JOB_SOURCE_LABEL[s]).join(", ")}
-            />
-          </>
-        ) : (
-          <p className="mt-2 text-[12px] text-muted">
-            No preferences yet — send the questionnaire or enter them manually.
-          </p>
-        )}
-      </Panel>
-    </div>
-  );
-}
-
-// ── Search panel ──────────────────────────────────────────────────────
-function SearchPanel({
-  client,
-  sources,
-  onToggleSource,
-  searching,
-  foundCount,
-  onRun,
-}: {
-  client: Client;
-  sources: JobSource[];
-  onToggleSource: (s: JobSource) => void;
-  searching: boolean;
-  foundCount: number | null;
-  onRun: () => void;
-}) {
-  const p = client.preferences;
-  return (
-    <div className="p-5 lg:sticky lg:top-0">
-      <h2 className="text-[13px] font-semibold">Search</h2>
-      <p className="mt-1 text-[11.5px] text-muted">
-        Pre-filled from {client.name.split(" ")[0]}&apos;s preferences.
-      </p>
-
-      {p && (
-        <div className="mt-4 space-y-3">
-          <Criteria label="Titles" values={p.titles} />
-          <Criteria label="Locations" values={p.locations} />
-          <div className="flex gap-6">
-            <MiniField label="Work type" value={p.workType} />
-            <MiniField
-              label="Salary"
-              value={salaryRange(p.salaryMin, p.salaryMax)}
-            />
-          </div>
-
-          <div>
-            <SectionLabel>Sources</SectionLabel>
-            <div className="mt-2 space-y-1.5">
-              {(Object.keys(JOB_SOURCE_LABEL) as JobSource[]).map((s) => (
-                <label
-                  key={s}
-                  className="flex cursor-pointer items-center gap-2 text-[12.5px] text-zinc-300"
-                >
-                  <input
-                    type="checkbox"
-                    checked={sources.includes(s)}
-                    onChange={() => onToggleSource(s)}
-                    className="h-3.5 w-3.5 accent-[var(--accent)]"
-                  />
-                  {JOB_SOURCE_LABEL[s]}
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Button
-        variant="primary"
-        className="mt-5 w-full"
-        onClick={onRun}
-        disabled={searching || sources.length === 0}
-      >
-        {searching ? "Searching…" : "Run search"}
-      </Button>
-
-      <div className="mt-3 min-h-[18px] text-[11.5px]">
-        {searching && (
-          <p className="text-muted">
-            Running on {sources.map((s) => JOB_SOURCE_LABEL[s]).join(", ")} —
-            results streaming into the shortlist…
-          </p>
-        )}
-        {!searching && foundCount !== null && (
-          <p className="text-status-offer">
-            {foundCount > 0
-              ? `${foundCount} new ${foundCount === 1 ? "match" : "matches"} added to the shortlist.`
-              : "No new matches — try different sources or criteria."}
-          </p>
-        )}
-        {!searching && foundCount === null && (
-          <p className="text-zinc-500">
-            Searches run in the background; you can leave this page.
-          </p>
-        )}
+      <div className="grid items-start gap-4 sm:grid-cols-2">
+        <Panel className="p-5">
+          <SectionLabel>Account</SectionLabel>
+          <Field label="Owner" value={client.ownerName} />
+          <Field label="Tier" value={client.tier} />
+          <Field label="Stage" value={client.stage} />
+          <Field label="Weekly quota" value={`${client.quotaApps} applications`} />
+          <Field
+            label="Client approval"
+            value={client.approvalRequired ? "Required" : "Off"}
+          />
+        </Panel>
+        <Panel className="p-5">
+          <SourcingPreferences client={client} />
+        </Panel>
       </div>
     </div>
   );
@@ -499,9 +455,9 @@ function Tabs({
   historyCount: number;
 }) {
   const items: { id: Tab; label: string }[] = [
+    { id: "profile", label: "Profile" },
     { id: "week", label: "This Week" },
     { id: "history", label: `History${historyCount ? ` (${historyCount})` : ""}` },
-    { id: "profile", label: "Profile" },
   ];
   return (
     <div className="flex gap-1 border-b border-panel-border">
@@ -583,24 +539,115 @@ function WeekSelector({
   );
 }
 
-function StageChip({ stage }: { stage: Client["stage"] }) {
-  const color =
-    stage === "active"
-      ? "var(--status-offer)"
-      : stage === "onboarding"
-        ? "var(--status-review)"
-        : stage === "paused"
-          ? "var(--status-interview)"
-          : "var(--status-expired)";
+function StageControl({
+  stage,
+  editable,
+  onChange,
+}: {
+  stage: ClientStage;
+  editable: boolean;
+  onChange: (s: ClientStage) => void;
+}) {
+  const color = stageColor(stage);
+  if (!editable) {
+    return (
+      <span
+        className="rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize"
+        style={{
+          color,
+          backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)`,
+        }}
+      >
+        {stage}
+      </span>
+    );
+  }
   return (
-    <span
-      className="rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize"
+    <select
+      value={stage}
+      onChange={(e) => onChange(e.target.value as ClientStage)}
+      className="rounded-full border-0 px-2 py-0.5 text-[10px] font-semibold capitalize outline-none"
       style={{
         color,
         backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)`,
       }}
+      aria-label="Client stage"
     >
-      {stage}
+      {CLIENT_STAGES.map((s) => (
+        <option key={s} value={s} className="bg-panel text-zinc-200">
+          {s}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function OnboardingBanner({
+  client,
+  qStatus,
+  canManage,
+  onSend,
+  onActivate,
+}: {
+  client: Client;
+  qStatus: QuestionnaireStatus;
+  canManage: boolean;
+  onSend: () => void;
+  onActivate: () => void;
+}) {
+  const sent = qStatus !== "not_sent";
+  const done = qStatus === "completed";
+  return (
+    <div className="border-b border-panel-border bg-[color-mix(in_srgb,var(--status-review)_8%,transparent)] px-8 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[13px] font-semibold text-zinc-100">
+            Onboarding {client.name}
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px]">
+            <Check done label="Client info" />
+            <Check done={false} label="Documents" />
+            <Check
+              done={done}
+              label={`Questionnaire: ${QUESTIONNAIRE_LABEL[qStatus]}`}
+            />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onSend}
+            disabled={sent || !canManage}
+          >
+            {sent ? "Questionnaire sent" : "Send questionnaire"}
+          </Button>
+          {canManage && (
+            <Button variant="primary" size="sm" onClick={onActivate}>
+              Move to Active
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Check({ done, label }: { done: boolean; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        className="grid h-4 w-4 place-items-center rounded-full text-[9px] font-bold"
+        style={{
+          color: done ? "var(--status-offer)" : "var(--muted)",
+          backgroundColor: done
+            ? "color-mix(in srgb, var(--status-offer) 20%, transparent)"
+            : "var(--panel-border)",
+        }}
+      >
+        {done ? "✓" : ""}
+      </span>
+      <span className={done ? "text-zinc-300" : "text-muted"}>{label}</span>
     </span>
   );
 }
@@ -644,33 +691,6 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MiniField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <SectionLabel>{label}</SectionLabel>
-      <p className="mt-1 text-[12.5px] capitalize text-zinc-200">{value}</p>
-    </div>
-  );
-}
-
-function Criteria({ label, values }: { label: string; values: string[] }) {
-  return (
-    <div>
-      <SectionLabel>{label}</SectionLabel>
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
-        {values.map((v) => (
-          <span
-            key={v}
-            className="rounded-md border border-panel-border px-2 py-0.5 text-[11.5px] text-zinc-300"
-          >
-            {v}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function Empty({
   children,
   className,
@@ -679,14 +699,12 @@ function Empty({
   className?: string;
 }) {
   return (
-    <p className={"px-4 py-6 text-center text-[12.5px] text-zinc-500 " + (className ?? "")}>
+    <p
+      className={
+        "px-4 py-6 text-center text-[12.5px] text-zinc-500 " + (className ?? "")
+      }
+    >
       {children}
     </p>
   );
-}
-
-function salaryRange(min?: number, max?: number) {
-  const k = (n?: number) => (n ? `$${Math.round(n / 1000)}k` : "");
-  if (!min && !max) return "—";
-  return `${k(min)}–${k(max)}`;
 }
