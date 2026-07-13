@@ -7,11 +7,13 @@
 
 import {
   AUDIT_LOG,
+  CLIENT_DOCUMENTS,
   CLIENTS,
   CURRENT_WEEK,
   GENERIC_IMPORT,
   IMPORT_SAMPLES,
   JOBS,
+  QUOTA_TIERS,
   TEAM,
   TODAY,
 } from "./fixtures";
@@ -19,7 +21,9 @@ import type {
   ApplicationJob,
   AuditEntry,
   Client,
+  ClientDocument,
   JobStatus,
+  QuotaTier,
   TeamMember,
   TeamWorkload,
 } from "./types";
@@ -64,6 +68,13 @@ export const api = {
   },
   getAuditLog(): Promise<AuditEntry[]> {
     return resolve(AUDIT_LOG);
+  },
+  // Documents on file for a client (workspace Documents tab, client Profile).
+  getDocuments(clientId: string): Promise<ClientDocument[]> {
+    return resolve(CLIENT_DOCUMENTS[clientId] ?? []);
+  },
+  getQuotaTiers(): Promise<QuotaTier[]> {
+    return resolve(QUOTA_TIERS);
   },
 
   // Per-member workload for the Team page (manager/admin oversight).

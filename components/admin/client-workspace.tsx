@@ -7,7 +7,7 @@
 // only owned clients; managers assign; JS/owners send to review.
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddJobsForm } from "@/components/admin/add-jobs-form";
 import {
   effectiveQuestionnaire,
@@ -16,18 +16,25 @@ import {
 } from "@/components/admin/questionnaire-panel";
 import { SourcingPreferences } from "@/components/admin/sourcing-preferences";
 import { useCurrentUser } from "@/components/shell/role-context";
-import { useStore } from "@/components/shell/store-context";
+import { effectiveDocuments, useStore } from "@/components/shell/store-context";
 import { Button } from "@/components/ui/button";
 import { MatchScore } from "@/components/ui/match-score";
 import { Panel } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
 import {
+  api,
+  DOCUMENT_KIND_LABEL,
+  DOCUMENT_KINDS,
   QUESTIONNAIRE_LABEL,
+  REJECT_CATEGORY_LABEL,
   type ApplicationJob,
   type Client,
+  type ClientDocument,
   type ClientStage,
+  type DocumentKind,
   type JobStatus,
   type QuestionnaireStatus,
+  type RejectCategory,
 } from "@/lib/api";
 import {
   canAddJobs,
@@ -56,7 +63,7 @@ const HISTORY_STATUSES = new Set<JobStatus>(["rejected", "closed", "expired"]);
 const byScore = (a: ApplicationJob, b: ApplicationJob) =>
   (b.matchScore ?? 0) - (a.matchScore ?? 0);
 
-type Tab = "week" | "history" | "profile";
+type Tab = "week" | "history" | "profile" | "documents";
 
 export function ClientWorkspace({
   client,
@@ -66,7 +73,15 @@ export function ClientWorkspace({
   initialJobs: ApplicationJob[];
 }) {
   const { user } = useCurrentUser();
-  const { stageById, setStage, questionnaireById, sendQuestionnaire } = useStore();
+  const {
+    stageById,
+    setStage,
+    questionnaireById,
+    sendQuestionnaire,
+    documentsById,
+    upsertDocument,
+    logAudit,
+  } = useStore();
   const editable = canEditClient(user, client.ownerId);
   const managerish = canAssign(user);
   const stage = stageById[client.id] ?? client.stage;
@@ -74,6 +89,30 @@ export function ClientWorkspace({
 
   const [tab, setTab] = useState<Tab>("profile");
   const [week, setWeek] = useState(29);
+
+  // Documents: fixture base merged with uploads/replacements from the store.
+  const [baseDocs, setBaseDocs] = useState<ClientDocument[]>([]);
+  useEffect(() => {
+    api.getDocuments(client.id).then(setBaseDocs);
+  }, [client.id]);
+  const docs = effectiveDocuments(baseDocs, documentsById[client.id]);
+
+  const handleUpload = useCallback(
+    (kind: DocumentKind, fileName: string) => {
+      upsertDocument(client.id, {
+        kind,
+        fileName,
+        uploadedAt: new Date().toISOString().slice(0, 10),
+        uploadedBy: user.name,
+      });
+      logAudit(
+        user.name,
+        `Uploaded ${DOCUMENT_KIND_LABEL[kind].toLowerCase()}`,
+        client.name,
+      );
+    },
+    [client.id, client.name, upsertDocument, logAudit, user.name],
+  );
 
   const [shortlist, setShortlist] = useState<ApplicationJob[]>(() =>
     initialJobs.filter((j) => SHORTLIST_STATUSES.has(j.status)).sort(byScore),
@@ -164,7 +203,10 @@ export function ClientWorkspace({
             <StageControl
               stage={stage}
               editable={canManageStage(user)}
-              onChange={(s) => setStage(client.id, s)}
+              onChange={(s) => {
+                setStage(client.id, s);
+                logAudit(user.name, `Changed stage to ${s}`, client.name);
+              }}
             />
             {!editable && (
               <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-400">
@@ -187,9 +229,16 @@ export function ClientWorkspace({
         <OnboardingBanner
           client={client}
           qStatus={questionnaire.status}
+          docsDone={docs.some((d) => d.kind === "resume")}
           canManage={canManageStage(user)}
-          onSend={() => sendQuestionnaire(client.id, genToken(client.id))}
-          onActivate={() => setStage(client.id, "active")}
+          onSend={() => {
+            sendQuestionnaire(client.id, genToken(client.id));
+            logAudit(user.name, "Sent questionnaire", client.name);
+          }}
+          onActivate={() => {
+            setStage(client.id, "active");
+            logAudit(user.name, "Changed stage to active", client.name);
+          }}
         />
       )}
 
@@ -208,8 +257,11 @@ export function ClientWorkspace({
               onToggle={toggleSelect}
             />
           )}
-          {tab === "history" && <History jobs={history} />}
+          {tab === "history" && <History jobs={history} clientName={client.name} />}
           {tab === "profile" && <Profile client={client} />}
+          {tab === "documents" && (
+            <Documents docs={docs} editable={editable} onUpload={handleUpload} />
+          )}
         </div>
 
         {/* Right panel: Add jobs (search is gone) */}
@@ -389,10 +441,84 @@ function ActiveRow({ job }: { job: ApplicationJob }) {
 }
 
 // ── History ───────────────────────────────────────────────────────────
-function History({ jobs }: { jobs: ApplicationJob[] }) {
+function History({
+  jobs,
+  clientName,
+}: {
+  jobs: ApplicationJob[];
+  clientName: string;
+}) {
   if (jobs.length === 0) return <Empty className="mt-6">No history yet.</Empty>;
   return (
-    <Panel className="mt-6 divide-y divide-panel-border overflow-hidden">
+    <div className="mt-6 space-y-4">
+      <TastePanel jobs={jobs} clientName={clientName} />
+      <HistoryList jobs={jobs} />
+    </div>
+  );
+}
+
+// Client-taste panel — rejection categories aggregated so sourcing can steer
+// away from what the client declines (09 Pages §Client Workspace History).
+function TastePanel({
+  jobs,
+  clientName,
+}: {
+  jobs: ApplicationJob[];
+  clientName: string;
+}) {
+  const rejected = jobs.filter((j) => j.status === "rejected");
+  if (rejected.length === 0) return null;
+
+  const counts = new Map<RejectCategory, number>();
+  for (const j of rejected) {
+    const cat = j.rejectCategory ?? "other";
+    counts.set(cat, (counts.get(cat) ?? 0) + 1);
+  }
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const max = ranked[0]?.[1] ?? 1;
+
+  return (
+    <Panel className="p-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-[13px] font-semibold">Client taste</h3>
+        <span className="font-mono text-[12px] tabular-nums text-muted">
+          {rejected.length} rejected
+        </span>
+      </div>
+      <p className="mt-1 text-[11.5px] text-muted">
+        Why {clientName} declines jobs — steer sourcing away from these.
+      </p>
+      <div className="mt-3 space-y-2">
+        {ranked.map(([cat, count]) => (
+          <div key={cat} className="flex items-center gap-3">
+            <span className="w-36 shrink-0 text-[12px] text-zinc-300">
+              {REJECT_CATEGORY_LABEL[cat]}
+            </span>
+            <span
+              className="h-1.5 flex-1 overflow-hidden rounded-full"
+              style={{ backgroundColor: "var(--panel-border)" }}
+            >
+              <span
+                className="block h-full rounded-full"
+                style={{
+                  width: `${(count / max) * 100}%`,
+                  backgroundColor: "var(--status-rejected)",
+                }}
+              />
+            </span>
+            <span className="w-6 text-right font-mono text-[12px] tabular-nums text-zinc-300">
+              {count}
+            </span>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function HistoryList({ jobs }: { jobs: ApplicationJob[] }) {
+  return (
+    <Panel className="divide-y divide-panel-border overflow-hidden">
       {jobs.map((job) => (
         <div key={job.id} className="px-4 py-3">
           <div className="flex items-center gap-3">
@@ -444,6 +570,102 @@ function Profile({ client }: { client: Client }) {
   );
 }
 
+// ── Documents ─────────────────────────────────────────────────────────
+// Upload/replace stores the file name only (files are mocked until the
+// backend); download stays disabled for the same reason.
+function Documents({
+  docs,
+  editable,
+  onUpload,
+}: {
+  docs: ClientDocument[];
+  editable: boolean;
+  onUpload: (kind: DocumentKind, fileName: string) => void;
+}) {
+  const byKind = new Map(docs.map((d) => [d.kind, d]));
+  return (
+    <div className="mt-6">
+      <Panel className="divide-y divide-panel-border overflow-hidden">
+        {DOCUMENT_KINDS.map((kind) => (
+          <DocumentRow
+            key={kind}
+            kind={kind}
+            doc={byKind.get(kind)}
+            editable={editable}
+            onUpload={onUpload}
+          />
+        ))}
+      </Panel>
+      <p className="mt-3 text-[11.5px] text-zinc-500">
+        Files are mocked until the backend lands — uploads keep the file name
+        only, and download activates then.
+      </p>
+    </div>
+  );
+}
+
+function DocumentRow({
+  kind,
+  doc,
+  editable,
+  onUpload,
+}: {
+  kind: DocumentKind;
+  doc?: ClientDocument;
+  editable: boolean;
+  onUpload: (kind: DocumentKind, fileName: string) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex items-center gap-4 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-medium text-zinc-100">
+          {DOCUMENT_KIND_LABEL[kind]}
+        </p>
+        {doc ? (
+          <p className="mt-0.5 truncate text-[11.5px] text-muted">
+            {doc.fileName} · {doc.uploadedAt}
+            {doc.uploadedBy ? ` · ${doc.uploadedBy}` : ""}
+          </p>
+        ) : (
+          <p className="mt-0.5 text-[11.5px] text-zinc-500">Not on file</p>
+        )}
+      </div>
+      {doc ? (
+        <span className="rounded-full bg-status-offer/15 px-2 py-0.5 text-[10px] font-semibold text-status-offer">
+          Uploaded
+        </span>
+      ) : (
+        <span className="rounded-full border border-panel-border px-2 py-0.5 text-[10px] font-semibold text-muted">
+          Missing
+        </span>
+      )}
+      {doc && (
+        <Button size="sm" disabled title="Available with the backend">
+          Download
+        </Button>
+      )}
+      {editable && (
+        <>
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onUpload(kind, f.name);
+              e.target.value = "";
+            }}
+          />
+          <Button size="sm" onClick={() => fileRef.current?.click()}>
+            {doc ? "Replace" : "Upload"}
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Small pieces ──────────────────────────────────────────────────────
 function Tabs({
   tab,
@@ -458,6 +680,7 @@ function Tabs({
     { id: "profile", label: "Profile" },
     { id: "week", label: "This Week" },
     { id: "history", label: `History${historyCount ? ` (${historyCount})` : ""}` },
+    { id: "documents", label: "Documents" },
   ];
   return (
     <div className="flex gap-1 border-b border-panel-border">
@@ -585,12 +808,14 @@ function StageControl({
 function OnboardingBanner({
   client,
   qStatus,
+  docsDone,
   canManage,
   onSend,
   onActivate,
 }: {
   client: Client;
   qStatus: QuestionnaireStatus;
+  docsDone: boolean;
   canManage: boolean;
   onSend: () => void;
   onActivate: () => void;
@@ -606,7 +831,7 @@ function OnboardingBanner({
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px]">
             <Check done label="Client info" />
-            <Check done={false} label="Documents" />
+            <Check done={docsDone} label="Documents" />
             <Check
               done={done}
               label={`Questionnaire: ${QUESTIONNAIRE_LABEL[qStatus]}`}

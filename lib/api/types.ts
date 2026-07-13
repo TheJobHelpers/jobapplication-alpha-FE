@@ -148,6 +148,41 @@ export interface ApplicationJob {
   updatedAt: string; // ISO date
 }
 
+// ── Documents ─────────────────────────────────────────────────────────
+// The four onboarding artifacts tracked per client (workspace Documents tab +
+// client portal Profile). Files themselves are mocked until the backend — only
+// the name/date are stored.
+export type DocumentKind = "resume" | "cover_letter" | "doc360" | "cqfo";
+
+export const DOCUMENT_KIND_LABEL: Record<DocumentKind, string> = {
+  resume: "Resume",
+  cover_letter: "Cover letter",
+  doc360: "360 document",
+  cqfo: "Questionnaire (CQFO)",
+};
+
+export const DOCUMENT_KINDS: DocumentKind[] = [
+  "resume",
+  "cover_letter",
+  "doc360",
+  "cqfo",
+];
+
+export interface ClientDocument {
+  kind: DocumentKind;
+  fileName: string;
+  uploadedAt: string; // ISO date
+  uploadedBy?: string;
+}
+
+// Quota tier defaults (Admin → quotas & tiers; per-client overrides live on the
+// client record).
+export interface QuotaTier {
+  tier: string;
+  quota: number;
+  note: string;
+}
+
 // Audit trail entry (Admin → audit log).
 export interface AuditEntry {
   id: string;

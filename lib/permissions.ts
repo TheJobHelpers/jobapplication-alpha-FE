@@ -30,9 +30,10 @@ export const isAdmin = (u: CurrentUser) => u.role === "admin";
 export const isManagerPlus = (u: CurrentUser) =>
   u.role === "admin" || u.role === "manager";
 
-// Nav visibility
+// Nav visibility. Managers see Admin too, but only the quotas slice inside
+// (09 Pages nav table: A ✓, M ~).
 export const canSeeTeam = isManagerPlus;
-export const canSeeAdmin = isAdmin;
+export const canSeeAdmin = isManagerPlus;
 
 // Actions
 export const canAssign = isManagerPlus; // assign an approved job to a JA member

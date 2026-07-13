@@ -1,13 +1,15 @@
 "use client";
 
 // Internal Portal shell — flat ops console (DESIGN.md). Fixed nav rail with the
-// role-aware IA (Today / Clients / Pipeline / Team / Admin), a command-palette
-// stub (Ctrl+K), and a global Quick-Add job slide-over (S). Team + Admin hide
-// for JA/JS members. A "viewing as" switcher makes role differences visible.
+// role-aware IA (Today / Clients / Pipeline / Team / Admin), the command
+// palette (Ctrl+K), and a global Quick-Add job slide-over (S). Team + Admin
+// hide for JA/JS members. A "viewing as" switcher makes role differences
+// visible.
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { CommandPalette } from "@/components/shell/command-palette";
 import { QuickAdd } from "@/components/shell/quick-add";
 import { useCurrentUser } from "@/components/shell/role-context";
 import { cn } from "@/lib/cn";
@@ -186,32 +188,13 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
 
       <main className="ml-56 flex-1">{children}</main>
 
-      {palette && <CommandPaletteStub onClose={() => setPalette(false)} />}
-      {quickAdd && <QuickAdd onClose={() => setQuickAdd(false)} />}
-    </div>
-  );
-}
-
-function CommandPaletteStub({ onClose }: { onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[18vh]"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-lg overflow-hidden rounded-lg border border-panel-border bg-panel shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <input
-          autoFocus
-          placeholder="Search commands, clients, jobs…"
-          className="w-full bg-transparent px-4 py-3.5 text-[14px] outline-none placeholder:text-zinc-500"
+      {palette && (
+        <CommandPalette
+          onClose={() => setPalette(false)}
+          onQuickAdd={() => setQuickAdd(true)}
         />
-        <div className="border-t border-panel-border px-4 py-3 text-[12px] text-muted">
-          Command palette — coming soon. Navigation, quick actions, and jump-to
-          land here.
-        </div>
-      </div>
+      )}
+      {quickAdd && <QuickAdd onClose={() => setQuickAdd(false)} />}
     </div>
   );
 }

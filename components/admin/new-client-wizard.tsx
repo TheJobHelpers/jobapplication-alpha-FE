@@ -23,7 +23,13 @@ type QMode = "send" | "manual" | "skip" | null;
 
 export function NewClientWizard() {
   const { user } = useCurrentUser();
-  const { addClient, sendQuestionnaire, setQuestionnaireStatus } = useStore();
+  const {
+    addClient,
+    sendQuestionnaire,
+    setQuestionnaireStatus,
+    upsertDocument,
+    logAudit,
+  } = useStore();
   const router = useRouter();
 
   const [team, setTeam] = useState<TeamMember[]>([]);
@@ -75,6 +81,24 @@ export function NewClientWizard() {
       approvalRequired: approval,
     };
     addClient(client);
+    logAudit(user.name, "Created client", client.name);
+    // Files picked in step 2 land on the client's document record.
+    const today = new Date().toISOString().slice(0, 10);
+    (
+      [
+        ["resume", docs.resume],
+        ["cover_letter", docs.cover],
+        ["doc360", docs.doc360],
+      ] as const
+    ).forEach(([kind, fileName]) => {
+      if (fileName)
+        upsertDocument(client.id, {
+          kind,
+          fileName,
+          uploadedAt: today,
+          uploadedBy: user.name,
+        });
+    });
     // Track the questionnaire milestone from the start based on the choice.
     if (qMode === "send") sendQuestionnaire(client.id, genToken(client.id));
     else if (qMode === "manual") setQuestionnaireStatus(client.id, "in_progress");

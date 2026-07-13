@@ -2,7 +2,14 @@
 // Deterministic data — no Date.now()/random — so screens render identically
 // on every load. Replaced by real API responses when apps/api lands.
 
-import type { ApplicationJob, AuditEntry, Client, TeamMember } from "./types";
+import type {
+  ApplicationJob,
+  AuditEntry,
+  Client,
+  ClientDocument,
+  QuotaTier,
+  TeamMember,
+} from "./types";
 
 export const CURRENT_WEEK = 29;
 export const TODAY = "2026-07-13"; // fixture "today", used when adding jobs
@@ -102,6 +109,46 @@ export const GENERIC_IMPORT: Omit<ApplicationJob, "clientId" | "clientName">[] =
   { id: "g2", company: "Northwind", title: "Team Lead", location: "Remote (US)", salary: "$135k–$165k", matchScore: 0.85, status: "sourced", addedVia: "import", updatedAt: "2026-07-13" },
   { id: "g3", company: "Globex", title: "Senior Associate", location: "Hybrid", salary: "$125k–$155k", matchScore: 0.8, status: "sourced", addedVia: "import", updatedAt: "2026-07-13" },
   { id: "g4", company: "Initech", title: "Manager", location: "Onsite", salary: "$120k–$150k", matchScore: 0.74, status: "sourced", addedVia: "import", updatedAt: "2026-07-13" },
+];
+
+// Documents on file per client. Michael Carter is mid-onboarding, so his are
+// mostly missing — the workspace Documents tab and onboarding checklist react.
+export const CLIENT_DOCUMENTS: Record<string, ClientDocument[]> = {
+  c_amara: [
+    { kind: "resume", fileName: "ashley-bennett-resume-2026.pdf", uploadedAt: "2026-06-02", uploadedBy: "Ashley Bennett" },
+    { kind: "cover_letter", fileName: "ashley-cover-base.docx", uploadedAt: "2026-06-02", uploadedBy: "Ashley Bennett" },
+    { kind: "cqfo", fileName: "cqfo-ashley-bennett.pdf", uploadedAt: "2026-06-05", uploadedBy: "System" },
+  ],
+  c_dev: [
+    { kind: "resume", fileName: "devin-cross-resume.pdf", uploadedAt: "2026-05-18", uploadedBy: "Devin Cross" },
+    { kind: "cover_letter", fileName: "devin-cover-template.docx", uploadedAt: "2026-05-18", uploadedBy: "Devin Cross" },
+    { kind: "doc360", fileName: "devin-360-review.pdf", uploadedAt: "2026-05-24", uploadedBy: "M. Perera" },
+    { kind: "cqfo", fileName: "cqfo-devin-cross.pdf", uploadedAt: "2026-05-20", uploadedBy: "System" },
+  ],
+  c_lena: [
+    { kind: "resume", fileName: "lauren-mitchell-resume.pdf", uploadedAt: "2026-06-20", uploadedBy: "Lauren Mitchell" },
+    { kind: "cqfo", fileName: "cqfo-lauren-mitchell.pdf", uploadedAt: "2026-06-24", uploadedBy: "System" },
+  ],
+  c_marco: [
+    { kind: "resume", fileName: "michael-carter-resume.pdf", uploadedAt: "2026-07-12", uploadedBy: "Michael Carter" },
+  ],
+  c_priya: [
+    { kind: "resume", fileName: "paige-sullivan-resume.pdf", uploadedAt: "2026-04-30", uploadedBy: "Paige Sullivan" },
+    { kind: "cover_letter", fileName: "paige-cover-base.docx", uploadedAt: "2026-04-30", uploadedBy: "Paige Sullivan" },
+    { kind: "doc360", fileName: "paige-360-review.pdf", uploadedAt: "2026-05-08", uploadedBy: "M. Perera" },
+    { kind: "cqfo", fileName: "cqfo-paige-sullivan.pdf", uploadedAt: "2026-05-02", uploadedBy: "System" },
+  ],
+  c_sam: [
+    { kind: "resume", fileName: "sam-whitfield-resume.pdf", uploadedAt: "2026-03-15", uploadedBy: "Sam Whitfield" },
+  ],
+};
+
+// Default weekly quotas per tier (Admin → quotas & tiers). Editable in the UI;
+// overrides persist in the localStorage store until the backend.
+export const QUOTA_TIERS: QuotaTier[] = [
+  { tier: "Tier 1", quota: 12, note: "Priority — highest weekly volume" },
+  { tier: "Tier 2", quota: 10, note: "Standard" },
+  { tier: "Tier 3", quota: 8, note: "Light touch" },
 ];
 
 // Audit trail (Admin → audit log).

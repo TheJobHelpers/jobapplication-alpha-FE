@@ -5,10 +5,22 @@
 // (the CQFO questionnaire); changes go through their Job Helper for now.
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useClientPortal } from "@/components/client/client-portal-context";
+import {
+  effectiveDocuments,
+  useStore,
+} from "@/components/shell/store-context";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
-import { QUESTIONNAIRE_LABEL, type WorkType } from "@/lib/api";
+import {
+  api,
+  DOCUMENT_KIND_LABEL,
+  DOCUMENT_KINDS,
+  QUESTIONNAIRE_LABEL,
+  type ClientDocument,
+  type WorkType,
+} from "@/lib/api";
 
 const WORK_TYPE_LABEL: Record<WorkType, string> = {
   remote: "Remote",
@@ -17,17 +29,19 @@ const WORK_TYPE_LABEL: Record<WorkType, string> = {
   any: "Any",
 };
 
-const DOCUMENTS = [
-  { key: "resume", label: "Resume", uploaded: true },
-  { key: "cover", label: "Cover letter", uploaded: true },
-  { key: "doc360", label: "360 document", uploaded: false },
-  { key: "cqfo", label: "Questionnaire (CQFO)", uploaded: true },
-];
-
 export default function ClientProfilePage() {
   const { client } = useClientPortal();
+  const { documentsById } = useStore();
   const p = client.preferences;
   const q = client.questionnaire;
+
+  // Same document record the team sees in the workspace Documents tab.
+  const [baseDocs, setBaseDocs] = useState<ClientDocument[]>([]);
+  useEffect(() => {
+    api.getDocuments(client.id).then(setBaseDocs);
+  }, [client.id]);
+  const docs = effectiveDocuments(baseDocs, documentsById[client.id]);
+  const byKind = new Map(docs.map((d) => [d.kind, d]));
 
   const salary =
     p?.salaryMin || p?.salaryMax
@@ -68,20 +82,30 @@ export default function ClientProfilePage() {
 
       <Section title="Documents">
         <div className="divide-y divide-panel-border">
-          {DOCUMENTS.map((d) => (
-            <div key={d.key} className="flex items-center gap-3 py-2.5">
-              <span className="flex-1 text-[13px]">{d.label}</span>
-              {d.uploaded ? (
-                <span className="rounded-full bg-status-offer/15 px-2 py-0.5 text-[10px] font-semibold text-status-offer">
-                  Uploaded
-                </span>
-              ) : (
-                <span className="rounded-full border border-panel-border px-2 py-0.5 text-[10px] font-semibold text-muted">
-                  Missing
-                </span>
-              )}
-            </div>
-          ))}
+          {DOCUMENT_KINDS.map((kind) => {
+            const doc = byKind.get(kind);
+            return (
+              <div key={kind} className="flex items-center gap-3 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <span className="text-[13px]">{DOCUMENT_KIND_LABEL[kind]}</span>
+                  {doc && (
+                    <p className="truncate text-[11px] text-muted">
+                      {doc.fileName} · {doc.uploadedAt}
+                    </p>
+                  )}
+                </div>
+                {doc ? (
+                  <span className="rounded-full bg-status-offer/15 px-2 py-0.5 text-[10px] font-semibold text-status-offer">
+                    Uploaded
+                  </span>
+                ) : (
+                  <span className="rounded-full border border-panel-border px-2 py-0.5 text-[10px] font-semibold text-muted">
+                    Missing
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
         {q && (
           <div className="mt-3 flex items-center justify-between border-t border-panel-border pt-3">

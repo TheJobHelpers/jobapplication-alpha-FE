@@ -36,7 +36,8 @@ function salaryRange(min?: number, max?: number) {
 
 export function SourcingPreferences({ client }: { client: Client }) {
   const { user } = useCurrentUser();
-  const { preferencesById, questionnaireById, setPreferences } = useStore();
+  const { preferencesById, questionnaireById, setPreferences, logAudit } =
+    useStore();
   const prefs = preferencesById[client.id] ?? client.preferences ?? EMPTY;
   const canEdit = canEditClient(user, client.ownerId);
   const [editing, setEditing] = useState(false);
@@ -64,6 +65,7 @@ export function SourcingPreferences({ client }: { client: Client }) {
           onCancel={() => setEditing(false)}
           onSave={(p) => {
             setPreferences(client.id, p);
+            logAudit(user.name, "Updated sourcing preferences", client.name);
             setEditing(false);
           }}
           token={questionnaireById[client.id]?.token ?? client.questionnaire?.token}
