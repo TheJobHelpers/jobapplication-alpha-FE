@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/*
+  JA-Alpha design tokens — see apps/web/DESIGN.md (binding guideline).
+  Flat ops-console style: no glassmorphism, no blur, no gradients.
+  One accent per portal: indigo = internal ops, emerald = client.
+  Internal portal is dark-only; client portal ships light default + dark.
+*/
+
+:root {
+  --background: #0b0b0f;
+  --foreground: #e6e6ec;
+
+  /* Flat surfaces (DESIGN.md). Portal-scoped so the client portal swaps to
+     light panels without touching components. */
+  --panel: #121218;
+  --panel-border: #26262f;
+  --muted: #a1a1aa; /* zinc-400 — secondary text */
+
+  /* Portal accents (set per portal-layout via [data-portal]) */
+  --accent: #6366f1;        /* indigo-500 default */
+  --accent-strong: #4f46e5; /* indigo-600 */
+
+  /* Status scale — semantic, identical in both portals (DESIGN.md) */
+  --status-sourced: #64748b; /* slate — freshly sourced, pre-review */
+  --status-review: #a78bfa;
+  --status-progress: #6366f1;
+  --status-assigned: #3b82f6;
+  --status-applied: #06b6d4;
+  --status-interview: #f59e0b;
+  --status-offer: #22c55e;
+  --status-rejected: #f43f5e;
+  --status-blocked: #ef4444;
+  --status-expired: #71717a;
+}
+
+[data-portal="internal"] {
+  --accent: #6366f1;
+  --accent-strong: #4f46e5;
+}
+
+[data-portal="client"] {
+  --accent: #34d399; /* emerald-400 */
+  --accent-strong: #10b981;
+  --panel: #ffffff;
+  --panel-border: #e7e7ec;
+  --muted: #52525b; /* zinc-600 — readable on light */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-panel: var(--panel);
+  --color-panel-border: var(--panel-border);
+  --color-muted: var(--muted);
+  --color-status-sourced: var(--status-sourced);
+  --color-status-review: var(--status-review);
+  --color-status-progress: var(--status-progress);
+  --color-status-assigned: var(--status-assigned);
+  --color-status-applied: var(--status-applied);
+  --color-status-interview: var(--status-interview);
+  --color-status-offer: var(--status-offer);
+  --color-status-rejected: var(--status-rejected);
+  --color-status-blocked: var(--status-blocked);
+  --color-status-expired: var(--status-expired);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
