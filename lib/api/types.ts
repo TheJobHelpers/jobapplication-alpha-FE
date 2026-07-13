@@ -23,6 +23,28 @@ export interface TeamMember {
 // ── Clients ───────────────────────────────────────────────────────────
 export type ClientStage = "onboarding" | "active" | "paused" | "closed";
 
+export type WorkType = "remote" | "hybrid" | "onsite" | "any";
+
+// Job sources are pluggable adapters on the backend (02 Architecture); the UI
+// just needs their id + label for the search panel.
+export type JobSource = "indeed" | "linkedin" | "jsearch";
+
+export const JOB_SOURCE_LABEL: Record<JobSource, string> = {
+  indeed: "Indeed",
+  linkedin: "LinkedIn",
+  jsearch: "JSearch",
+};
+
+// Distilled from the CQFO questionnaire; powers search pre-fill + match scoring.
+export interface ClientPreferences {
+  titles: string[];
+  locations: string[];
+  workType: WorkType;
+  salaryMin?: number;
+  salaryMax?: number;
+  sources: JobSource[]; // sources enabled for this client
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -33,6 +55,7 @@ export interface Client {
   quotaApps: number; // weekly application target
   filledApps: number; // applications assigned so far this week
   approvalRequired: boolean; // client must approve sourced jobs before applying
+  preferences?: ClientPreferences;
 }
 
 // ── Application jobs & the workflow state machine ─────────────────────
