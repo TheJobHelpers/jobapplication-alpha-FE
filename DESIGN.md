@@ -48,7 +48,7 @@ Chips: pill, 10px semibold, background = status color at ~18% opacity, text = st
 
 ## Component rules
 
-1. **Match score meter** — signature element. Small horizontal meter + 2-decimal number, mono, always together, identical everywhere a job appears (both portals).
+1. **Match score meter** — signature element. Small horizontal meter + a percentage (0–100%), mono, always together, identical everywhere a job appears (both portals).
 2. **Urgency stripe** — queue rows carry a 3px left stripe: red = quota/deadline risk, amber = stale, green = ready/positive, blue/violet = informational.
 3. **Reasons are first-class** — Rejected and Blocked always render their reason wherever the job appears. A status without its reason is a bug.
 4. **Buttons** — primary = portal accent + white text + 600. Secondary = bordered ghost. Reject/destructive = rose outlined, filled only at confirm. One primary per view.

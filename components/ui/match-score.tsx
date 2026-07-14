@@ -1,7 +1,7 @@
 // MatchScore — the system's signature element (DESIGN.md §Component rules 1).
-// A small horizontal meter + a 2-decimal number in mono, always together and
-// visually identical everywhere a job appears, in either portal. Deliberately
-// portal-neutral (not the portal accent) so it reads the same on both sides.
+// A small horizontal meter + a percentage in mono, always together and visually
+// identical everywhere a job appears, in either portal. Deliberately portal-neutral
+// (not the portal accent) so it reads the same on both sides.
 
 import { cn } from "@/lib/cn";
 
@@ -33,7 +33,7 @@ export function MatchScore({
         />
       </span>
       <span className="font-mono text-[11px] tabular-nums text-foreground/80">
-        {score.toFixed(2)}
+        {Math.round(pct)}%
       </span>
     </span>
   );
