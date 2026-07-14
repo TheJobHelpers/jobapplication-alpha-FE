@@ -3,25 +3,17 @@
 // Internal Portal shell — flat ops console (DESIGN.md). Fixed nav rail with the
 // role-aware IA (Today / Clients / Pipeline / Team / Admin), the command
 // palette (Ctrl+K), and a global Quick-Add job slide-over (S). Team + Admin
-// hide for JA/JS members. A "viewing as" switcher makes role differences
-// visible.
+// hide for JA/JS members. The nav reflects the signed-in user's real role.
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { QuickAdd } from "@/components/shell/quick-add";
-import { useCurrentUser } from "@/components/shell/role-context";
+import { useCurrentUser, useStaffSession } from "@/components/shell/role-context";
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/cn";
-import { STAFF_SESSION_KEY, writeSession } from "@/lib/session";
-import {
-  canSeeAdmin,
-  canSeeTeam,
-  roleLabel,
-  USER_PRESETS,
-  type CurrentUser,
-} from "@/lib/permissions";
+import { canSeeAdmin, canSeeTeam, roleLabel, type CurrentUser } from "@/lib/permissions";
 
 type NavItem = {
   href: string;
@@ -55,7 +47,8 @@ function useCmdLabel() {
 export function InternalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, setUser } = useCurrentUser();
+  const { user } = useCurrentUser();
+  const { signOut } = useStaffSession();
   const [palette, setPalette] = useState(false);
   const [quickAdd, setQuickAdd] = useState(false);
 
@@ -147,8 +140,8 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
           </button>
 
           <button
-            onClick={() => {
-              writeSession(STAFF_SESSION_KEY, null);
+            onClick={async () => {
+              await signOut();
               router.replace("/admin/login");
             }}
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] text-muted hover:bg-zinc-800/40 hover:text-zinc-200"
@@ -156,25 +149,17 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
             <IconLogout /> Log out
           </button>
 
-          {/* Viewing-as switcher — makes role differences visible */}
-          <div className="mt-1 border-t border-panel-border px-1 pt-3">
-            <label className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
-              Viewing as
-            </label>
-            <select
-              value={user.id}
-              onChange={(e) => {
-                const next = USER_PRESETS.find((p) => p.id === e.target.value);
-                if (next) setUser(next);
-              }}
-              className="mt-1 w-full rounded-md border border-panel-border bg-panel px-2 py-1.5 text-[12px] text-zinc-200 outline-none focus:border-zinc-600"
-            >
-              {USER_PRESETS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} · {roleLabel(p)}
-                </option>
-              ))}
-            </select>
+          {/* Signed-in identity — role drives the nav + permissions above. */}
+          <div className="mt-1 flex items-center gap-2.5 border-t border-panel-border px-1.5 pt-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-[11px] font-semibold text-zinc-300">
+              {initials(user.name)}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-[12px] font-medium text-zinc-200">
+                {user.name}
+              </span>
+              <span className="block text-[10.5px] text-muted">{roleLabel(user)}</span>
+            </span>
           </div>
         </div>
       </aside>
@@ -190,6 +175,16 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
       {quickAdd && <QuickAdd onClose={() => setQuickAdd(false)} />}
     </div>
   );
+}
+
+// "S. Fernando" → "SF", "Ops Admin" → "OA".
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
 function Kbd({ children }: { children: React.ReactNode }) {

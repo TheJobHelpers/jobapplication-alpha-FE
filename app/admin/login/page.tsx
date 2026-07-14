@@ -1,23 +1,36 @@
 "use client";
 
-// Mock staff sign-in. No real auth yet — any input signs you in and drops you at
-// Today. Replaced by a real login (email/password → JWT cookie) with the backend.
+// Staff sign-in. Email/password → the backend sets a JWT HttpOnly cookie; we
+// then re-probe /auth/me (session.refresh) so the role-aware shell renders for
+// whoever signed in.
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
-import { STAFF_SESSION_KEY, writeSession } from "@/lib/session";
+import { useStaffSession } from "@/components/shell/role-context";
+import { ApiError, auth } from "@/lib/api";
 
 export default function StaffLoginPage() {
   const router = useRouter();
+  const { refresh } = useStaffSession();
   const [email, setEmail] = useState("ops@thejobhelpers.com");
-  const [password, setPassword] = useState("demo");
+  const [password, setPassword] = useState("password");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  function signIn(e: React.FormEvent) {
+  async function signIn(e: React.FormEvent) {
     e.preventDefault();
-    writeSession(STAFF_SESSION_KEY, "1");
-    router.replace("/admin");
+    setBusy(true);
+    setError(null);
+    try {
+      await auth.staffLogin(email, password);
+      await refresh();
+      router.replace("/admin");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Sign-in failed. Try again.");
+      setBusy(false);
+    }
   }
 
   return (
@@ -57,12 +70,24 @@ export default function StaffLoginPage() {
             />
           </label>
 
-          <Button variant="primary" size="md" type="submit" className="w-full">
-            Sign in
+          {error && (
+            <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-[12px] text-red-400">
+              {error}
+            </p>
+          )}
+
+          <Button
+            variant="primary"
+            size="md"
+            type="submit"
+            className="w-full"
+            disabled={busy}
+          >
+            {busy ? "Signing in…" : "Sign in"}
           </Button>
 
           <p className="text-center text-[11px] text-zinc-500">
-            Mock sign-in. Any credentials work until the backend is ready.
+            Demo: ops@thejobhelpers.com · password
           </p>
         </form>
       </div>

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useClientPortal } from "@/components/client/client-portal-context";
 import { Logo } from "@/components/ui/logo";
-import { CLIENT_SESSION_KEY, writeSession } from "@/lib/session";
+import { auth } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
 const NAV = [
@@ -110,8 +110,8 @@ export function ClientShell({
           </div>
 
           <button
-            onClick={() => {
-              writeSession(CLIENT_SESSION_KEY, null);
+            onClick={async () => {
+              await auth.logout();
               router.replace("/login");
             }}
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[12px] text-muted transition-colors hover:bg-foreground/5 hover:text-foreground"

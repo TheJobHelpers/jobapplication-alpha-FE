@@ -1,13 +1,13 @@
 "use client";
 
-// Guards the client portal. Signed out → redirect to /login. Once a client id is
-// in session, load their data and render the shell.
+// Guards the client portal. Probes /auth/me: a client principal renders the
+// portal for their id; anything else (signed out, or a staff session) → /login.
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ClientPortalProvider } from "@/components/client/client-portal-context";
 import { ClientShell } from "@/components/client/client-shell";
-import { CLIENT_SESSION_KEY, useSession } from "@/lib/session";
+import { auth, type ClientPrincipal } from "@/lib/api";
 
 export function ClientGate({
   dark,
@@ -19,17 +19,30 @@ export function ClientGate({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const clientId = useSession(CLIENT_SESSION_KEY);
+  // undefined = probing, null = not a signed-in client, else the principal.
+  const [principal, setPrincipal] = useState<ClientPrincipal | null | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
-    if (clientId === null) router.replace("/login");
-  }, [clientId, router]);
+    let alive = true;
+    auth.me().then((p) => {
+      if (alive) setPrincipal(p && p.kind === "client" ? p : null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  if (clientId === undefined) return <CenterLoader />; // hydrating
-  if (clientId === null) return null; // redirecting
+  useEffect(() => {
+    if (principal === null) router.replace("/login");
+  }, [principal, router]);
+
+  if (principal === undefined) return <CenterLoader />; // probing
+  if (principal === null) return null; // redirecting
 
   return (
-    <ClientPortalProvider clientId={clientId}>
+    <ClientPortalProvider clientId={principal.id}>
       <ClientShell dark={dark} toggleTheme={toggleTheme}>
         {children}
       </ClientShell>

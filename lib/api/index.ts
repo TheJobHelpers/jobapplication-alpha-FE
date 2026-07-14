@@ -31,6 +31,8 @@ import type {
 } from "./types";
 
 export * from "./types";
+export * from "./auth";
+export { ApiError } from "./http";
 export { CURRENT_WEEK, TODAY };
 
 // Simulate network latency so loading states are exercised in dev.

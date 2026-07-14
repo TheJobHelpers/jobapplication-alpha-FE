@@ -1,40 +1,46 @@
 "use client";
 
-// Mock client sign-in. No real auth yet — pick a demo client and go. It's scoped
-// with data-portal="client" so it wears the emerald/light look even though it
-// lives outside the /client layout. Replaced by real login with the backend.
+// Client sign-in. Email/password → the backend sets a JWT HttpOnly cookie; the
+// client gate then probes /auth/me on /client. The demo-account picker just
+// prefills a seeded email (all seeded logins share the password "password").
+// Scoped with data-portal="client" so it wears the emerald/light look even
+// though it lives outside the /client layout.
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
-import { api, type Client } from "@/lib/api";
-import { CLIENT_SESSION_KEY, writeSession } from "@/lib/session";
+import { ApiError, auth } from "@/lib/api";
+
+// Seeded demo clients (id → email in the backend seed). Selecting one prefills
+// the email so demos are one click; any seeded login uses password "password".
+const DEMO_CLIENTS = [
+  { email: "ashley.bennett@example.com", name: "Ashley Bennett (reviews jobs)" },
+  { email: "devin.cross@example.com", name: "Devin Cross" },
+  { email: "lauren.mitchell@example.com", name: "Lauren Mitchell" },
+  { email: "michael.carter@example.com", name: "Michael Carter" },
+  { email: "paige.sullivan@example.com", name: "Paige Sullivan" },
+  { email: "sam.whitfield@example.com", name: "Sam Whitfield (auto-apply)" },
+];
 
 export default function ClientLoginPage() {
   const router = useRouter();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [clientId, setClientId] = useState("");
+  const [email, setEmail] = useState(DEMO_CLIENTS[0].email);
+  const [password, setPassword] = useState("password");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    let alive = true;
-    api.getClients().then((cs) => {
-      if (!alive) return;
-      setClients(cs);
-      setClientId(cs[0]?.id ?? "");
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const selected = clients.find((c) => c.id === clientId);
-
-  function signIn(e: React.FormEvent) {
+  async function signIn(e: React.FormEvent) {
     e.preventDefault();
-    if (!clientId) return;
-    writeSession(CLIENT_SESSION_KEY, clientId);
-    router.replace("/client");
+    setBusy(true);
+    setError(null);
+    try {
+      await auth.clientLogin(email, password);
+      router.replace("/client");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Sign-in failed. Try again.");
+      setBusy(false);
+    }
   }
 
   return (
@@ -62,7 +68,8 @@ export default function ClientLoginPage() {
             <span className="text-[11px] font-medium text-muted">Email</span>
             <input
               type="email"
-              defaultValue="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full rounded-md border border-panel-border bg-transparent px-3 py-2 text-[13px] outline-none focus:border-zinc-400"
             />
           </label>
@@ -70,46 +77,45 @@ export default function ClientLoginPage() {
             <span className="text-[11px] font-medium text-muted">Password</span>
             <input
               type="password"
-              defaultValue="demo"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="mt-1 w-full rounded-md border border-panel-border bg-transparent px-3 py-2 text-[13px] outline-none focus:border-zinc-400"
             />
           </label>
 
           <label className="block border-t border-panel-border pt-3">
-            <span className="text-[11px] font-medium text-muted">
-              Demo account
-            </span>
+            <span className="text-[11px] font-medium text-muted">Demo account</span>
             <select
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full rounded-md border border-panel-border bg-panel px-3 py-2 text-[13px] outline-none focus:border-zinc-400"
             >
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
+              {DEMO_CLIENTS.map((c) => (
+                <option key={c.email} value={c.email}>
                   {c.name}
-                  {c.approvalRequired ? " (reviews jobs)" : " (auto-apply)"}
                 </option>
               ))}
             </select>
-            {selected && (
-              <span className="mt-1 block text-[11px] text-muted">
-                {selected.tier} · {selected.stage}
-              </span>
-            )}
           </label>
+
+          {error && (
+            <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-[12px] text-red-500">
+              {error}
+            </p>
+          )}
 
           <Button
             variant="primary"
             size="md"
             type="submit"
             className="w-full"
-            disabled={!clientId}
+            disabled={busy}
           >
-            Sign in
+            {busy ? "Signing in…" : "Sign in"}
           </Button>
 
           <p className="text-center text-[11px] text-muted">
-            Mock sign-in. Choose a demo client until the backend is ready.
+            Demo logins use the password “password”.
           </p>
         </form>
       </div>

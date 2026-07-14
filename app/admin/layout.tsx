@@ -3,8 +3,9 @@ import { RoleProvider } from "@/components/shell/role-context";
 import { StoreProvider } from "@/components/shell/store-context";
 
 // Internal Portal root. Sets the portal accent scope (indigo) via data-portal.
-// StaffGate handles the mock sign-in gate + shell; RoleProvider supplies the mock
-// "current user"; StoreProvider holds records created in the UI until the backend.
+// RoleProvider restores the staff session (/auth/me) and supplies the signed-in
+// user; StaffGate gates on it + renders the shell; StoreProvider holds records
+// created in the UI until the backend owns them.
 export default function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {

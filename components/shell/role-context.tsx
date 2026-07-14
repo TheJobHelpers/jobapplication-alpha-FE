@@ -1,54 +1,93 @@
 "use client";
 
-// Mock "current user" context. Lets you switch role (admin / manager / JA / JS)
-// from the shell so the portal's role-aware nav, actions, and Kanban permissions
-// are visibly different. Persists the choice in localStorage. Replaced by real
-// auth later.
+// Staff session, backed by real auth (/auth/me). The signed-in user's role is
+// whatever they logged in as — it drives all role-aware nav, actions, and Kanban
+// permissions. (There is no "viewing as" switcher anymore; to see another role's
+// view, sign in as an account with that role.)
+//
+// useCurrentUser() returns the signed-in staff user and is safe to read anywhere
+// inside the gated shell (the StaffGate guarantees an authed user before the
+// shell renders). useStaffSession() exposes the loading/signed-out status and the
+// sign-out control for the gate + shell chrome.
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { USER_PRESETS, type CurrentUser } from "@/lib/permissions";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { auth, type Principal } from "@/lib/api";
+import type { CurrentUser } from "@/lib/permissions";
 
-const STORAGE_KEY = "ja:current-user";
+type Status = "loading" | "authed" | "signedout";
 
-type Ctx = { user: CurrentUser; setUser: (u: CurrentUser) => void };
+interface Ctx {
+  user: CurrentUser | null; // null unless status === "authed"
+  status: Status;
+  refresh: () => Promise<void>; // re-probe /auth/me (after login)
+  signOut: () => Promise<void>;
+}
 
 const RoleContext = createContext<Ctx | null>(null);
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUserState] = useState<CurrentUser>(USER_PRESETS[0]);
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [status, setStatus] = useState<Status>("loading");
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as CurrentUser;
-        const match = USER_PRESETS.find((p) => p.id === saved.id);
-        if (match) setUserState(match);
-      }
-    } catch {
-      // ignore corrupt storage
+  const applyPrincipal = useCallback((principal: Principal | null) => {
+    if (principal && principal.kind === "staff") {
+      setUser({
+        id: principal.id,
+        name: principal.name,
+        role: principal.role,
+        memberType: principal.memberType ?? undefined,
+      });
+      setStatus("authed");
+    } else {
+      setUser(null);
+      setStatus("signedout");
     }
   }, []);
 
-  const setUser = (u: CurrentUser) => {
-    setUserState(u);
+  const refresh = useCallback(async () => {
+    applyPrincipal(await auth.me());
+  }, [applyPrincipal]);
+
+  // Restore the session on load. The setState happens in the promise callback
+  // (external-state → React), not synchronously in the effect body.
+  useEffect(() => {
+    let alive = true;
+    auth.me().then((principal) => {
+      if (alive) applyPrincipal(principal);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [applyPrincipal]);
+
+  const signOut = useCallback(async () => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-    } catch {
-      // ignore
+      await auth.logout();
+    } finally {
+      setUser(null);
+      setStatus("signedout");
     }
-  };
+  }, []);
 
   return (
-    <RoleContext.Provider value={{ user, setUser }}>
+    <RoleContext.Provider value={{ user, status, refresh, signOut }}>
       {children}
     </RoleContext.Provider>
   );
 }
 
-export function useCurrentUser(): Ctx {
+// The signed-in staff user. Only valid inside the gated shell — throws if read
+// while signed out, which would be a routing bug (the gate should have blocked).
+export function useCurrentUser(): { user: CurrentUser } {
   const ctx = useContext(RoleContext);
-  if (!ctx)
-    throw new Error("useCurrentUser must be used within <RoleProvider>");
+  if (!ctx) throw new Error("useCurrentUser must be used within <RoleProvider>");
+  if (!ctx.user) throw new Error("useCurrentUser read while signed out");
+  return { user: ctx.user };
+}
+
+// Full session state + controls, for the gate and shell chrome.
+export function useStaffSession(): Ctx {
+  const ctx = useContext(RoleContext);
+  if (!ctx) throw new Error("useStaffSession must be used within <RoleProvider>");
   return ctx;
 }

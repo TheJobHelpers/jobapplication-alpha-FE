@@ -1,15 +1,13 @@
 "use client";
 
-// Mock session store. No backend yet, so "who's signed in" lives in localStorage.
-// Read through useSession (useSyncExternalStore) so there's no setState-in-effect
-// and no hydration mismatch: the server snapshot is `undefined` ("not yet known"),
-// which lets gates show a loader instead of flashing a wrong redirect. Replaced by
-// real auth (JWT HttpOnly cookies) when the backend lands.
+// Client-side UI preference store (theme, board/list view) plus the client's
+// review decisions until those move server-side. Auth is NO LONGER here — sign-in
+// state comes from real JWT cookies via /auth/me (see lib/api/auth.ts). Read
+// through useSession (useSyncExternalStore) so there's no setState-in-effect and
+// no hydration mismatch: the server snapshot is `undefined` ("not yet known").
 
 import { useSyncExternalStore } from "react";
 
-export const STAFF_SESSION_KEY = "ja:staff-session";
-export const CLIENT_SESSION_KEY = "ja:client-session"; // value = signed-in client id
 export const CLIENT_DECISIONS_KEY = "ja:client-decisions"; // approve/reject per job
 export const CLIENT_THEME_KEY = "ja:client-theme"; // "light" | "dark"
 export const CLIENT_JOBS_VIEW_KEY = "ja:client-jobs-view"; // "board" | "list"
