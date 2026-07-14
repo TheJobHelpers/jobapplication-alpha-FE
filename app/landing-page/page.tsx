@@ -311,25 +311,25 @@ export default function LandingPage() {
       </section>
 
       {/* Final CTA */}
-      <section className="mx-auto max-w-6xl px-6 pb-24">
-        <Reveal>
+      <section className="px-6 py-24">
+        <Reveal className="mx-auto max-w-3xl">
           <div
-            className="relative overflow-hidden rounded-3xl border border-[var(--accent)]/20 px-8 py-16 text-center"
+            className="relative flex flex-col items-center overflow-hidden rounded-3xl border border-[var(--accent)]/20 px-6 py-14 text-center sm:px-12"
             style={{
               backgroundImage:
                 "radial-gradient(ellipse 80% 120% at 50% 0%, color-mix(in srgb, var(--accent) 16%, var(--panel)), var(--panel))",
             }}
           >
             <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[var(--accent)] opacity-[0.12] blur-[80px]" />
-            <h2 className="relative mx-auto max-w-lg text-[28px] font-semibold tracking-tight text-balance">
+            <h2 className="relative max-w-md text-[27px] font-semibold leading-tight tracking-tight text-balance sm:text-[30px]">
               Ready to let us take the job search off your plate?
             </h2>
-            <p className="relative mx-auto mt-3 max-w-md text-[15px] text-muted">
+            <p className="relative mt-4 max-w-sm text-[15px] text-muted">
               Sign in to your portal to review this week’s roles.
             </p>
             <Link
               href="/login"
-              className="group relative mt-8 inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-6 py-3 text-[14px] font-semibold text-white shadow-lg shadow-[var(--accent)]/25 transition-all hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
+              className="group relative mt-7 inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-6 py-3 text-[14px] font-semibold text-white shadow-lg shadow-[var(--accent)]/25 transition-all hover:-translate-y-0.5 hover:bg-[var(--accent-strong)]"
             >
               Go to your portal
               <span className="transition-transform group-hover:translate-x-0.5">
