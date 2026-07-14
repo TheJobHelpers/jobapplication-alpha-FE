@@ -38,7 +38,7 @@ export default function ClientProfilePage() {
   // Same document record the team sees in the workspace Documents tab.
   const [baseDocs, setBaseDocs] = useState<ClientDocument[]>([]);
   useEffect(() => {
-    api.getDocuments(client.id).then(setBaseDocs);
+    api.me.getDocuments().then(setBaseDocs);
   }, [client.id]);
   const docs = effectiveDocuments(baseDocs, documentsById[client.id]);
   const byKind = new Map(docs.map((d) => [d.kind, d]));

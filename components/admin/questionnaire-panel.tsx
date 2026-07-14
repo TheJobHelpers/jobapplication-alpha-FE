@@ -87,7 +87,7 @@ export function QuestionnairePanel({ client }: { client: Client }) {
               variant="primary"
               size="sm"
               className="mt-2"
-              onClick={() => sendQuestionnaire(client.id, genToken(client.id))}
+              onClick={() => sendQuestionnaire(client.id)}
             >
               Send questionnaire
             </Button>
@@ -145,7 +145,7 @@ export function QuestionnairePanel({ client }: { client: Client }) {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => sendQuestionnaire(client.id, genToken(client.id))}
+                onClick={() => sendQuestionnaire(client.id)}
               >
                 Resend
               </Button>

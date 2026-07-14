@@ -53,6 +53,28 @@ export function AddJobsForm({
 }) {
   const [mode, setMode] = useState<Mode>("manual");
 
+  // Persist the draft rows to the backend, then hand the CREATED jobs (real
+  // ids) up so the shortlist / pipeline operate on rows the API knows about.
+  async function persistAndAdd(drafts: ApplicationJob[]) {
+    try {
+      const created = await api.createJobs(
+        drafts.map((d) => ({
+          clientId,
+          company: d.company,
+          title: d.title,
+          location: d.location,
+          salary: d.salary,
+          matchScore: d.matchScore,
+          status: d.status,
+          addedVia: d.addedVia,
+        })),
+      );
+      onAdd(created);
+    } catch (e) {
+      console.error("Add jobs failed:", e);
+    }
+  }
+
   return (
     <div>
       <div className="flex gap-1 rounded-md border border-panel-border p-0.5 text-[12px]">
@@ -72,14 +94,14 @@ export function AddJobsForm({
           <ManualEntry
             clientId={clientId}
             clientName={clientName}
-            onAdd={onAdd}
+            onAdd={persistAndAdd}
           />
         )}
         {mode === "import" && (
           <BulkImport
             clientId={clientId}
             clientName={clientName}
-            onAdd={onAdd}
+            onAdd={persistAndAdd}
           />
         )}
         {mode === "soon" && <ComingSoonSources />}
@@ -162,7 +184,7 @@ function BulkImport({
   const [preview, setPreview] = useState<ApplicationJob[]>([]);
 
   async function loadSample() {
-    const sample = await api.getImportSample(clientId);
+    const sample = await api.getImportSample(clientId, clientName);
     setPreview(sample);
   }
 

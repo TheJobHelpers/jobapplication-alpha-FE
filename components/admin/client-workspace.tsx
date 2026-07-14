@@ -11,7 +11,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddJobsForm } from "@/components/admin/add-jobs-form";
 import {
   effectiveQuestionnaire,
-  genToken,
   QuestionnairePanel,
 } from "@/components/admin/questionnaire-panel";
 import { SourcingPreferences } from "@/components/admin/sourcing-preferences";
@@ -82,6 +81,8 @@ export function ClientWorkspace({
     sendQuestionnaire,
     documentsById,
     upsertDocument,
+    assignJob,
+    setJobStatus,
     logAudit,
   } = useStore();
   const editable = canEditClient(user, client.ownerId);
@@ -101,12 +102,7 @@ export function ClientWorkspace({
 
   const handleUpload = useCallback(
     (kind: DocumentKind, fileName: string) => {
-      upsertDocument(client.id, {
-        kind,
-        fileName,
-        uploadedAt: new Date().toISOString().slice(0, 10),
-        uploadedBy: user.name,
-      });
+      upsertDocument(client.id, kind, fileName, user.name);
       logAudit(
         user.name,
         `Uploaded ${DOCUMENT_KIND_LABEL[kind].toLowerCase()}`,
@@ -168,10 +164,14 @@ export function ClientWorkspace({
     ]);
     setFilled((n) => n + picked.length);
     setSelected(new Set());
-  }, [shortlist, selected, client.ownerId, client.ownerName]);
+    // Persist: assign each to the client's owner (also mirrors into the shared
+    // overlay so the pipeline reflects the move).
+    picked.forEach((j) => assignJob(j.id, client.ownerId));
+  }, [shortlist, selected, client.ownerId, client.ownerName, assignJob]);
 
   const sendToReview = useCallback(() => {
     if (selected.size === 0) return;
+    const toReview = shortlist.filter((j) => selected.has(j.id) && j.status === "sourced");
     setShortlist((prev) =>
       prev
         .map((j) =>
@@ -182,7 +182,8 @@ export function ClientWorkspace({
         .sort(byScore),
     );
     setSelected(new Set());
-  }, [selected]);
+    toReview.forEach((j) => setJobStatus(j.id, "client_review"));
+  }, [selected, shortlist, setJobStatus]);
 
   const selectedCount = selected.size;
 
@@ -234,7 +235,7 @@ export function ClientWorkspace({
           docsDone={docs.some((d) => d.kind === "resume")}
           canManage={canManageStage(user)}
           onSend={() => {
-            sendQuestionnaire(client.id, genToken(client.id));
+            sendQuestionnaire(client.id);
             logAudit(user.name, "Sent questionnaire", client.name);
           }}
           onActivate={() => {

@@ -1,9 +1,10 @@
 "use client";
 
-// Comment thread on a job card — the team↔client channel (pipeline/workspace
-// on the internal side, My Jobs on the client side). Fixture seed + store
-// additions, oldest first. Collapsed to a count button until opened. Uses
-// portal tokens only, so it renders correctly in both portals and themes.
+// Comment thread on a job card — the team↔client channel (pipeline/workspace on
+// the internal side, My Jobs on the client side). Backend-backed: the seed loads
+// from the API and new comments POST to it (the client posts via /me/*, the team
+// via /jobs/*), then mirror into the shared overlay so the thread updates
+// instantly. Uses portal tokens only, so it renders in both portals and themes.
 
 import { useEffect, useState } from "react";
 import { useStore } from "@/components/shell/store-context";
@@ -15,22 +16,25 @@ export function JobComments({
   side,
 }: {
   jobId: string;
-  author: string; // signed-in name to stamp on new comments
-  side: CommentSide;
+  author: string; // signed-in name (used for the client-side optimistic stamp)
+  side: CommentSide; // "client" → post/read via /me/*, "team" → staff endpoints
 }) {
   const { commentsByJobId, addComment } = useStore();
   const [seed, setSeed] = useState<JobComment[]>([]);
   const [text, setText] = useState("");
 
   useEffect(() => {
-    api.getJobComments(jobId).then(setSeed);
-  }, [jobId]);
+    const load =
+      side === "client" ? api.me.getJobComments(jobId) : api.getJobComments(jobId);
+    load.then(setSeed).catch(() => setSeed([]));
+  }, [jobId, side]);
 
   const comments = [...seed, ...(commentsByJobId[jobId] ?? [])];
 
   function send() {
     const trimmed = text.trim();
     if (!trimmed) return;
+    // Optimistic add now; persist in the background (client posts via /me/*).
     addComment({
       id: `cm_${jobId}_${Date.now()}`,
       jobId,
@@ -40,6 +44,11 @@ export function JobComments({
       at: new Date().toISOString().slice(0, 10),
     });
     setText("");
+    const post =
+      side === "client"
+        ? api.me.addJobComment(jobId, trimmed)
+        : api.addJobComment(jobId, trimmed);
+    post.catch((e) => console.error("comment failed:", e));
   }
 
   return (
@@ -90,13 +99,22 @@ export function JobComments({
 }
 
 // Small read-only badge for cards — the thread itself lives in the detail
-// popup. Hidden when the thread is empty.
-export function CommentCount({ jobId }: { jobId: string }) {
+// popup. Hidden when the thread is empty. `portal` picks the read endpoint
+// (client cards read via /me/*).
+export function CommentCount({
+  jobId,
+  portal = "internal",
+}: {
+  jobId: string;
+  portal?: "internal" | "client";
+}) {
   const { commentsByJobId } = useStore();
   const [seedCount, setSeedCount] = useState(0);
   useEffect(() => {
-    api.getJobComments(jobId).then((c) => setSeedCount(c.length));
-  }, [jobId]);
+    const load =
+      portal === "client" ? api.me.getJobComments(jobId) : api.getJobComments(jobId);
+    load.then((c) => setSeedCount(c.length)).catch(() => setSeedCount(0));
+  }, [jobId, portal]);
   const n = seedCount + (commentsByJobId[jobId]?.length ?? 0);
   if (n === 0) return null;
   return (

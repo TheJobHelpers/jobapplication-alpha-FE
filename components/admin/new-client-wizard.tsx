@@ -8,11 +8,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccessDenied } from "@/components/admin/access-denied";
-import { genToken } from "@/components/admin/questionnaire-panel";
 import { useCurrentUser } from "@/components/shell/role-context";
 import { useStore } from "@/components/shell/store-context";
 import { Button } from "@/components/ui/button";
-import { api, type Client, type TeamMember } from "@/lib/api";
+import { api, type TeamMember } from "@/lib/api";
 import { canCreateClient } from "@/lib/permissions";
 
 const STEPS = ["Client info", "Documents", "Questionnaire", "Review"];
@@ -56,6 +55,7 @@ export function NewClientWizard() {
 
   // Step 3 — questionnaire
   const [qMode, setQMode] = useState<QMode>("send");
+  const [creating, setCreating] = useState(false);
 
   if (!canCreateClient(user)) return <AccessDenied need="managers and admins" />;
 
@@ -67,42 +67,36 @@ export function NewClientWizard() {
     setQuota(TIER_QUOTA[t]);
   }
 
-  function create() {
-    const owner = team.find((m) => m.id === ownerId);
-    const client: Client = {
-      id: `c_new_${Date.now()}`,
-      name: name.trim(),
-      stage: "onboarding",
-      tier,
-      ownerId,
-      ownerName: owner?.name ?? "—",
-      quotaApps: quota,
-      filledApps: 0,
-      approvalRequired: approval,
-    };
-    addClient(client);
-    logAudit(user.name, "Created client", client.name);
-    // Files picked in step 2 land on the client's document record.
-    const today = new Date().toISOString().slice(0, 10);
-    (
-      [
-        ["resume", docs.resume],
-        ["cover_letter", docs.cover],
-        ["doc360", docs.doc360],
-      ] as const
-    ).forEach(([kind, fileName]) => {
-      if (fileName)
-        upsertDocument(client.id, {
-          kind,
-          fileName,
-          uploadedAt: today,
-          uploadedBy: user.name,
-        });
-    });
-    // Track the questionnaire milestone from the start based on the choice.
-    if (qMode === "send") sendQuestionnaire(client.id, genToken(client.id));
-    else if (qMode === "manual") setQuestionnaireStatus(client.id, "in_progress");
-    router.push(`/admin/clients/${client.id}`);
+  async function create() {
+    setCreating(true);
+    try {
+      const created = await addClient({
+        name: name.trim(),
+        email: email.trim(),
+        tier,
+        ownerId,
+        quotaApps: quota,
+        approvalRequired: approval,
+      });
+      logAudit(user.name, "Created client", created.name);
+      // Files picked in step 2 land on the client's document record.
+      (
+        [
+          ["resume", docs.resume],
+          ["cover_letter", docs.cover],
+          ["doc360", docs.doc360],
+        ] as const
+      ).forEach(([kind, fileName]) => {
+        if (fileName) upsertDocument(created.id, kind, fileName, user.name);
+      });
+      // Track the questionnaire milestone from the start based on the choice.
+      if (qMode === "send") sendQuestionnaire(created.id);
+      else if (qMode === "manual") setQuestionnaireStatus(created.id, "in_progress");
+      router.push(`/admin/clients/${created.id}`);
+    } catch (err) {
+      console.error("Create client failed:", err);
+      setCreating(false);
+    }
   }
 
   return (
@@ -271,8 +265,8 @@ export function NewClientWizard() {
             Continue
           </Button>
         ) : (
-          <Button variant="primary" onClick={create}>
-            Create client
+          <Button variant="primary" onClick={create} disabled={creating}>
+            {creating ? "Creating…" : "Create client"}
           </Button>
         )}
       </div>

@@ -1,31 +1,32 @@
-// Typed mock API. Every screen reads through these async fetchers so that
-// swapping fixtures for FastAPI calls later means editing only this file.
+// Typed API client for the FastAPI backend. Every screen reads/writes through
+// these fetchers; the shapes mirror the backend schemas 1:1 (camelCase both
+// sides, so responses parse into the TS types with no mapping).
 //
-// The shapes here ARE the API contract the backend will implement.
+// Two audiences share one contract:
+//  - `api.*`        — staff endpoints (internal portal; require a staff session)
+//  - `api.me.*`     — client-portal endpoints (/me/*; a signed-in client only)
+// A client principal cannot call the staff endpoints (they're gated 403), so the
+// client portal MUST use api.me.*.
+//
 // Note: search is NOT a portal feature (vault note 09). Jobs are added or
-// imported; api.getImportSample mocks a bulk import.
+// imported; api.getImportSample still mocks a bulk-import sample client-side.
 
-import {
-  AUDIT_LOG,
-  CLIENT_DOCUMENTS,
-  CLIENTS,
-  CURRENT_WEEK,
-  GENERIC_IMPORT,
-  IMPORT_SAMPLES,
-  JOB_COMMENTS,
-  JOBS,
-  QUOTA_TIERS,
-  TEAM,
-  TODAY,
-} from "./fixtures";
+import { apiFetch, ApiError } from "./http";
+import { GENERIC_IMPORT, IMPORT_SAMPLES } from "./fixtures";
 import type {
   ApplicationJob,
   AuditEntry,
   Client,
   ClientDocument,
+  ClientPreferences,
   JobComment,
   JobStatus,
+  MemberType,
+  QuestionnaireState,
+  QuestionnaireStatus,
   QuotaTier,
+  RejectCategory,
+  Role,
   TeamMember,
   TeamWorkload,
 } from "./types";
@@ -33,96 +34,174 @@ import type {
 export * from "./types";
 export * from "./auth";
 export { ApiError } from "./http";
-export { CURRENT_WEEK, TODAY };
+export { CURRENT_WEEK, TODAY } from "./fixtures";
 
-// Simulate network latency so loading states are exercised in dev.
-function resolve<T>(value: T, ms = 120): Promise<T> {
-  return new Promise((r) => setTimeout(() => r(value), ms));
+// ── Mutation payloads (mirror the backend *Create/*Patch schemas) ────────
+export interface ClientCreateInput {
+  name: string;
+  email: string;
+  tier: string;
+  ownerId: string;
+  quotaApps: number;
+  approvalRequired: boolean;
+}
+export interface MemberCreateInput {
+  name: string;
+  email: string;
+  role: Role;
+  memberType?: MemberType;
+  capacity: number;
+}
+export interface JobCreateInput {
+  clientId: string;
+  company: string;
+  title: string;
+  location: string;
+  salary?: string;
+  matchScore?: number;
+  status?: JobStatus;
+  addedVia?: ApplicationJob["addedVia"];
+}
+export interface ClientPatchInput {
+  stage?: Client["stage"];
+  ownerId?: string;
+  tier?: string;
+  quotaApps?: number;
+  approvalRequired?: boolean;
+}
+export interface JobPatchInput {
+  status?: JobStatus;
+  reason?: string;
+  rejectCategory?: RejectCategory;
+  assignedToId?: string;
 }
 
-const ACTIVE: Set<JobStatus> = new Set([
-  "in_progress",
-  "assigned",
-  "applying",
-  "applied",
-  "interviewing",
-  "offer",
-  "blocked",
-]);
-
-// Anything not touched since this date (5 days before the fixture "today") and
-// still active counts as stale.
-const STALE_BEFORE = "2026-07-09";
-
 export const api = {
+  // ── Reads (staff) ──────────────────────────────────────────────────
   getTeam(): Promise<TeamMember[]> {
-    return resolve(TEAM);
+    return apiFetch("/team");
+  },
+  getTeamWorkload(): Promise<TeamWorkload[]> {
+    return apiFetch("/team/workload");
   },
   getClients(): Promise<Client[]> {
-    return resolve(CLIENTS);
+    return apiFetch("/clients");
   },
-  getClient(id: string): Promise<Client | undefined> {
-    return resolve(CLIENTS.find((c) => c.id === id));
+  async getClient(id: string): Promise<Client | undefined> {
+    try {
+      return await apiFetch<Client>(`/clients/${id}`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return undefined;
+      throw e;
+    }
   },
   getJobs(): Promise<ApplicationJob[]> {
-    return resolve(JOBS);
+    return apiFetch("/jobs");
   },
   getJobsForClient(clientId: string): Promise<ApplicationJob[]> {
-    return resolve(JOBS.filter((j) => j.clientId === clientId));
+    return apiFetch(`/clients/${clientId}/jobs`);
   },
-  getAuditLog(): Promise<AuditEntry[]> {
-    return resolve(AUDIT_LOG);
-  },
-  // Documents on file for a client (workspace Documents tab, client Profile).
   getDocuments(clientId: string): Promise<ClientDocument[]> {
-    return resolve(CLIENT_DOCUMENTS[clientId] ?? []);
+    return apiFetch(`/clients/${clientId}/documents`);
+  },
+  getJobComments(jobId: string): Promise<JobComment[]> {
+    return apiFetch(`/jobs/${jobId}/comments`);
   },
   getQuotaTiers(): Promise<QuotaTier[]> {
-    return resolve(QUOTA_TIERS);
+    return apiFetch("/settings/quota-tiers");
   },
-  // Seed comments for a job's thread (UI-added comments layer on via the store).
-  getJobComments(jobId: string): Promise<JobComment[]> {
-    return resolve(JOB_COMMENTS.filter((c) => c.jobId === jobId));
+  getSources(): Promise<Record<string, boolean>> {
+    return apiFetch("/settings/sources");
+  },
+  getAuditLog(): Promise<AuditEntry[]> {
+    return apiFetch("/audit");
   },
 
-  // Per-member workload for the Team page (manager/admin oversight).
-  getTeamWorkload(): Promise<TeamWorkload[]> {
-    const rows = TEAM.filter((m) => m.role === "team_member" || m.role === "manager").map(
-      (member): TeamWorkload => {
-        const owned = CLIENTS.filter((c) => c.ownerId === member.id);
-        const mine = JOBS.filter((j) => j.assignedToId === member.id);
-        const active = mine.filter((j) => ACTIVE.has(j.status));
-        return {
-          member,
-          clientCount: owned.length,
-          quotaFilled: owned.reduce((s, c) => s + c.filledApps, 0),
-          quotaTarget: owned.reduce((s, c) => s + c.quotaApps, 0),
-          activeJobs: active.length,
-          applied: mine.filter((j) => j.status === "applied").length,
-          interviewing: mine.filter((j) => j.status === "interviewing").length,
-          offers: mine.filter((j) => j.status === "offer").length,
-          stale: active.filter((j) => j.updatedAt <= STALE_BEFORE).length,
-        };
-      },
-    );
-    return resolve(rows);
+  // ── Mutations (staff) ──────────────────────────────────────────────
+  createClient(input: ClientCreateInput): Promise<Client> {
+    return apiFetch("/clients", { method: "POST", body: input });
+  },
+  patchClient(id: string, patch: ClientPatchInput): Promise<Client> {
+    return apiFetch(`/clients/${id}`, { method: "PATCH", body: patch });
+  },
+  putPreferences(id: string, prefs: ClientPreferences): Promise<ClientPreferences> {
+    return apiFetch(`/clients/${id}/preferences`, { method: "PUT", body: prefs });
+  },
+  sendQuestionnaire(id: string): Promise<QuestionnaireState> {
+    return apiFetch(`/clients/${id}/questionnaire/send`, { method: "POST" });
+  },
+  patchQuestionnaire(id: string, status: QuestionnaireStatus): Promise<QuestionnaireState> {
+    return apiFetch(`/clients/${id}/questionnaire`, { method: "PATCH", body: { status } });
+  },
+  upsertDocument(id: string, kind: ClientDocument["kind"], fileName: string): Promise<ClientDocument> {
+    return apiFetch(`/clients/${id}/documents`, { method: "POST", body: { kind, fileName } });
+  },
+  createJobs(jobs: JobCreateInput[]): Promise<ApplicationJob[]> {
+    return apiFetch("/jobs", { method: "POST", body: jobs });
+  },
+  patchJob(id: string, patch: JobPatchInput): Promise<ApplicationJob> {
+    return apiFetch(`/jobs/${id}`, { method: "PATCH", body: patch });
+  },
+  addJobComment(jobId: string, text: string): Promise<JobComment> {
+    return apiFetch(`/jobs/${jobId}/comments`, { method: "POST", body: { text } });
+  },
+  createMember(input: MemberCreateInput): Promise<TeamMember> {
+    return apiFetch("/team", { method: "POST", body: input });
+  },
+  patchQuotaTier(tier: string, quota: number): Promise<QuotaTier> {
+    return apiFetch(`/settings/quota-tiers/${encodeURIComponent(tier)}`, {
+      method: "PATCH",
+      body: { quota },
+    });
+  },
+  patchSource(source: string, enabled: boolean): Promise<Record<string, boolean>> {
+    return apiFetch(`/settings/sources/${source}`, { method: "PATCH", body: { enabled } });
+  },
+
+  // ── Client portal (/me/*) — a signed-in client only ────────────────
+  me: {
+    getClient(): Promise<Client> {
+      return apiFetch("/me/client");
+    },
+    getJobs(): Promise<ApplicationJob[]> {
+      return apiFetch("/me/jobs");
+    },
+    getDocuments(): Promise<ClientDocument[]> {
+      return apiFetch("/me/documents");
+    },
+    getJobComments(jobId: string): Promise<JobComment[]> {
+      return apiFetch(`/me/jobs/${jobId}/comments`);
+    },
+    addJobComment(jobId: string, text: string): Promise<JobComment> {
+      return apiFetch(`/me/jobs/${jobId}/comments`, { method: "POST", body: { text } });
+    },
+    acceptJob(jobId: string): Promise<ApplicationJob> {
+      return apiFetch(`/me/jobs/${jobId}/accept`, { method: "POST" });
+    },
+    declineJob(jobId: string, category: RejectCategory, reason: string): Promise<ApplicationJob> {
+      return apiFetch(`/me/jobs/${jobId}/decline`, {
+        method: "POST",
+        body: { category, reason },
+      });
+    },
+    undoDecision(jobId: string): Promise<ApplicationJob> {
+      return apiFetch(`/me/jobs/${jobId}/undo`, { method: "POST" });
+    },
   },
 
   // Mocks a bulk import for a client (paste rows / upload CSV). Returns jobs to
-  // drop into the shortlist. Real import happens client-side per note 09.
-  getImportSample(clientId: string): Promise<ApplicationJob[]> {
+  // drop into the shortlist — the real import stays client-side per note 09.
+  // These are draft rows, not yet persisted; the workspace POSTs them on add.
+  getImportSample(clientId: string, clientName: string, titles: string[] = []): Promise<ApplicationJob[]> {
     const bespoke = IMPORT_SAMPLES[clientId];
-    if (bespoke) return resolve(bespoke, 250);
-
-    const client = CLIENTS.find((c) => c.id === clientId);
-    const titles = client?.preferences?.titles ?? [];
+    if (bespoke) return Promise.resolve(bespoke);
     const generic = GENERIC_IMPORT.map((c, i) => ({
       ...c,
       id: `${clientId}_${c.id}`,
       clientId,
-      clientName: client?.name ?? "Client",
+      clientName,
       title: titles[i % Math.max(titles.length, 1)] ?? c.title,
     }));
-    return resolve(generic, 250);
+    return Promise.resolve(generic);
   },
 };

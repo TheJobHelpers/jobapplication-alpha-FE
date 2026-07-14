@@ -202,7 +202,7 @@ function BoardCard({
         <div className="mt-3 flex items-center justify-between gap-2">
           <span className="flex items-center gap-2.5">
             {showChip && <StatusChip status={job.status} variant="client" />}
-            <CommentCount jobId={job.id} />
+            <CommentCount jobId={job.id} portal="client" />
           </span>
           {isReview && (
             <Link href="/client/review" onClick={(e) => e.stopPropagation()}>
@@ -277,7 +277,7 @@ function JobRow({ job }: { job: ApplicationJob }) {
               {job.company} · {job.location}
             </p>
           </div>
-          <CommentCount jobId={job.id} />
+          <CommentCount jobId={job.id} portal="client" />
           <StatusChip status={job.status} variant="client" />
           {isReview && (
             <Link href="/client/review" onClick={(e) => e.stopPropagation()}>

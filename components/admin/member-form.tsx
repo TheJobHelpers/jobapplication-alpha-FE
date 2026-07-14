@@ -8,7 +8,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { MemberType, Role, TeamMember } from "@/lib/api";
+import type { MemberCreateInput } from "@/lib/api";
+import type { MemberType, Role } from "@/lib/api";
 import { creatableRoles, type CurrentUser } from "@/lib/permissions";
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -30,7 +31,7 @@ export function MemberForm({
   onCancel,
 }: {
   user: CurrentUser;
-  onCreate: (m: TeamMember) => void;
+  onCreate: (input: MemberCreateInput) => void;
   onCancel?: () => void;
 }) {
   const roles = creatableRoles(user);
@@ -46,11 +47,10 @@ export function MemberForm({
     if (!valid) return;
     const isTeamMember = role === "team_member";
     onCreate({
-      id: `u_new_${Date.now()}`,
       name: name.trim(),
+      email: email.trim(),
       role,
       memberType: isTeamMember ? memberType : undefined,
-      activeClients: 0,
       capacity: isTeamMember ? capacity : 0,
     });
   }
