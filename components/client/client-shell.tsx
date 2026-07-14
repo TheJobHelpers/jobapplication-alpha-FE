@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useClientPortal } from "@/components/client/client-portal-context";
+import { Logo } from "@/components/ui/logo";
 import { CLIENT_SESSION_KEY, writeSession } from "@/lib/session";
 import { cn } from "@/lib/cn";
 
@@ -42,9 +43,8 @@ export function ClientShell({
   return (
     <div className="flex h-screen overflow-hidden">
       <aside className="flex w-60 shrink-0 flex-col border-r border-panel-border bg-panel">
-        <div className="flex items-center gap-2 px-5 py-4">
-          <span className="h-2.5 w-2.5 rounded-full bg-[var(--accent)]" />
-          <span className="text-[14px] font-semibold">The Job Helpers</span>
+        <div className="px-5 py-4">
+          <Logo size={30} />
         </div>
 
         <nav className="flex-1 space-y-0.5 px-3 py-2">

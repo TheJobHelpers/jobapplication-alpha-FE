@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Reveal } from "@/components/landing/reveal";
+import { Logo } from "@/components/ui/logo";
 
 // Public landing page for The Job Helpers — the page we send to prospective
 // clients. Light, emerald brand (data-portal="client" scopes the tokens), with
@@ -67,10 +68,7 @@ export default function LandingPage() {
       {/* Nav */}
       <header className="sticky top-0 z-40 border-b border-panel-border/60 bg-[var(--background)]/70 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2">
-            <span className="lp-pulse h-2.5 w-2.5 rounded-full bg-[var(--accent)]" />
-            <span className="text-[15px] font-semibold">The Job Helpers</span>
-          </div>
+          <Logo size={32} />
           <Link
             href="/login"
             className="rounded-full border border-panel-border px-4 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:border-[var(--accent)] hover:text-[var(--accent-strong)]"
@@ -343,10 +341,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-panel-border">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-[12.5px] text-muted sm:flex-row">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[var(--accent)]" />
-            <span className="font-medium text-foreground">The Job Helpers</span>
-          </div>
+          <Logo size={26} />
           <p>© {new Date().getFullYear()} The Job Helpers. All rights reserved.</p>
         </div>
       </footer>

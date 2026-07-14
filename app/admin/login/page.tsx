@@ -6,6 +6,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/ui/logo";
 import { STAFF_SESSION_KEY, writeSession } from "@/lib/session";
 
 export default function StaffLoginPage() {
@@ -22,16 +23,8 @@ export default function StaffLoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-2.5">
-          <span className="grid h-8 w-8 place-items-center rounded-md bg-[var(--accent)] text-[14px] font-bold text-white">
-            J
-          </span>
-          <div className="leading-tight">
-            <p className="text-[14px] font-semibold">JA-Alpha</p>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
-              Operations Console
-            </p>
-          </div>
+        <div className="mb-6">
+          <Logo size={34} subtitle="Operations Console" />
         </div>
 
         <form

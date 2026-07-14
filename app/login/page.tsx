@@ -7,6 +7,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/ui/logo";
 import { api, type Client } from "@/lib/api";
 import { CLIENT_SESSION_KEY, writeSession } from "@/lib/session";
 
@@ -42,9 +43,8 @@ export default function ClientLoginPage() {
       className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground"
     >
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-[var(--accent)]" />
-          <span className="text-[15px] font-semibold">The Job Helpers</span>
+        <div className="mb-6">
+          <Logo size={34} />
         </div>
 
         <form

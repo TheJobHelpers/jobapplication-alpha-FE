@@ -7,6 +7,7 @@
 // with apps/api; until then the page runs standalone on mock data.
 
 import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { Logo } from "@/components/ui/logo";
 import { Answers, CQFO_STEPS, Step, isStepComplete } from "@/lib/cqfo";
 
 const MOCK_CLIENT = { name: "Ashley Bennett", tier: "Tier 2" };
@@ -74,8 +75,8 @@ export default function QuestionnairePage({
         <div className="h-full bg-accent transition-all duration-500" style={{ width: `${progress * 100}%` }} />
       </div>
 
-      <header className="flex items-center justify-between px-6 py-4 text-xs text-zinc-500">
-        <span className="font-semibold text-zinc-300">The Job Helpers</span>
+      <header className="flex items-center justify-between px-6 py-4 text-xs text-muted">
+        <Logo size={26} />
         {step.kind !== "intro" && step.kind !== "outro" && (
           <span className="tabular-nums">{questionNumber} of {questionSteps.length}</span>
         )}

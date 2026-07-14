@@ -3,7 +3,7 @@
 // My Jobs — the client's window into the same pipeline the team works. Two views
 // of the same data: a Board (kanban) to see everything at a glance, and a List
 // grouped friendliest-first. Read-only: clients track, they don't move cards.
-// "Blocked" reads as "Action needed"; declines keep the client's own reason
+// "Blocked" reads as "Needs your input"; declines keep the client's own reason
 // (06/08 UX — one truth, two views).
 
 import Link from "next/link";

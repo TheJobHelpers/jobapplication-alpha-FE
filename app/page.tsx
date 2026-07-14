@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/ui/logo";
 
 // Portal chooser. Flat surfaces, one accent per card scoped via data-portal
 // (indigo = internal, emerald = client). No glass, no gradients (DESIGN.md).
@@ -22,12 +23,10 @@ const portals = [
 export default function Home() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-12 px-6 py-24">
-      <div className="space-y-3 text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
-          JA-Alpha
-        </p>
+      <div className="space-y-4 text-center">
+        <Logo size={40} showName={false} className="justify-center" />
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          Job applications, run like an operation.
+          The Job Helpers
         </h1>
         <p className="mx-auto max-w-xl text-[14px] text-muted">
           One platform, two portals. Pick yours.

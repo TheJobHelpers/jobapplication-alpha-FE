@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "JA-Alpha",
-  description: "Multi-portal job application management platform",
+  title: "The Job Helpers",
+  description: "Job application management, done for you.",
+  icons: { icon: "/tjh.png", apple: "/tjh.png" },
 };
 
 export default function RootLayout({

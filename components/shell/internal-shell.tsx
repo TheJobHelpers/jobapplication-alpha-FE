@@ -12,6 +12,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { QuickAdd } from "@/components/shell/quick-add";
 import { useCurrentUser } from "@/components/shell/role-context";
+import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/cn";
 import { STAFF_SESSION_KEY, writeSession } from "@/lib/session";
 import {
@@ -97,16 +98,8 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside className="fixed inset-y-0 left-0 flex w-56 flex-col border-r border-panel-border bg-panel">
-        <div className="flex items-center gap-2.5 px-4 py-4">
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--accent)] text-[13px] font-bold text-white">
-            J
-          </span>
-          <div className="leading-tight">
-            <p className="text-[13px] font-semibold">JA-Alpha</p>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
-              Ops Console
-            </p>
-          </div>
+        <div className="px-4 py-4">
+          <Logo size={30} subtitle="Operations" />
         </div>
 
         <nav className="flex-1 space-y-0.5 px-2 py-2">
