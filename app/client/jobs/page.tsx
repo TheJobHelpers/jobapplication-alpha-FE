@@ -26,29 +26,31 @@ import {
   writeSession,
 } from "@/lib/session";
 
-// Client-facing board columns, left-to-right progression. "Action needed"
-// (blocked) gets its own column so the client can't miss it, and "Applied" is
-// separate from "In progress" so the client sees the moment the team submits.
-// Cards carry a status chip to disambiguate within a grouped column.
+// Client-facing board columns mirror the real flow left-to-right: the client
+// reviews → accepts → the team takes accepted jobs to In progress → Applied →
+// outcomes. Blocked jobs stay inside In progress with a red "what we need"
+// callout (plus the dashboard banner), so the flow reads clean. Cards carry a
+// status chip to disambiguate within a grouped column.
 const COLUMNS: { key: string; label: string; color: string; statuses: JobStatus[] }[] = [
   { key: "review", label: "Your review", color: "var(--status-review)", statuses: ["client_review"] },
-  { key: "action", label: "Action needed", color: "var(--status-blocked)", statuses: ["blocked"] },
-  { key: "progress", label: "In progress", color: "var(--status-progress)", statuses: ["approved", "in_progress", "assigned"] },
+  { key: "accepted", label: "Accepted", color: "var(--status-offer)", statuses: ["approved"] },
+  { key: "progress", label: "In progress", color: "var(--status-progress)", statuses: ["in_progress", "assigned", "blocked"] },
   { key: "applied", label: "Applied", color: "var(--status-applied)", statuses: ["applying", "applied"] },
-  { key: "outcomes", label: "Interviews & offers", color: "var(--status-offer)", statuses: ["interviewing", "offer"] },
+  { key: "outcomes", label: "Interviews & offers", color: "var(--status-interview)", statuses: ["interviewing", "offer"] },
   { key: "closed", label: "Closed", color: "var(--status-expired)", statuses: ["rejected", "expired", "closed"] },
 ];
 
 // Columns whose cards should show a status chip (they group several statuses).
 const MULTI = new Set(["progress", "applied", "outcomes", "closed"]);
 
-// List groups, friendliest-first.
+// List groups, friendliest-first — blocked leads because it waits on the client.
 const GROUPS: { title: string; note?: string; statuses: JobStatus[] }[] = [
-  { title: "Action needed", note: "We need something from you to move these forward.", statuses: ["blocked"] },
+  { title: "We need something from you", statuses: ["blocked"] },
   { title: "Waiting for your review", statuses: ["client_review"] },
-  { title: "Interviews & offers", statuses: ["interviewing", "offer"] },
+  { title: "Accepted", note: "You accepted these — we're getting the applications ready.", statuses: ["approved"] },
+  { title: "In progress", statuses: ["in_progress", "assigned"] },
   { title: "Applied", note: "Submitted — waiting to hear back.", statuses: ["applying", "applied"] },
-  { title: "In progress", statuses: ["approved", "in_progress", "assigned"] },
+  { title: "Interviews & offers", statuses: ["interviewing", "offer"] },
   { title: "Not moving forward", statuses: ["rejected", "expired", "closed"] },
 ];
 

@@ -229,7 +229,7 @@ export const STATUS_META: Record<JobStatus, StatusMeta> = {
   },
   approved: {
     label: "Approved",
-    clientLabel: "Approved",
+    clientLabel: "Accepted",
     color: "var(--status-offer)",
   },
   rejected: {
@@ -279,7 +279,7 @@ export const STATUS_META: Record<JobStatus, StatusMeta> = {
   },
   blocked: {
     label: "Blocked",
-    clientLabel: "Action needed",
+    clientLabel: "Needs your input",
     color: "var(--status-blocked)",
   },
 };

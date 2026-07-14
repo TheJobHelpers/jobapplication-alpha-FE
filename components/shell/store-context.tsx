@@ -16,8 +16,16 @@ import type {
   JobStatus,
   QuestionnaireState,
   QuestionnaireStatus,
+  RejectCategory,
   TeamMember,
 } from "@/lib/api";
+
+// Reason/category attached to a status override (client declines carry these
+// so the team's views show the why, per DESIGN.md's reasons-always rule).
+export interface JobStatusMeta {
+  reason?: string;
+  rejectCategory?: RejectCategory;
+}
 
 const STORAGE_KEY = "ja:store";
 
@@ -31,7 +39,8 @@ interface StoreShape {
   tierQuotas: Record<string, number>; // quota-tier overrides (Admin)
   sourcesEnabled: Partial<Record<JobSource, boolean>>; // org source toggles
   audit: AuditEntry[]; // UI actions, newest first (merged with fixture log)
-  jobStatusById: Record<string, JobStatus>; // status overrides (pipeline moves) — both portals read these
+  jobStatusById: Record<string, JobStatus>; // status overrides (pipeline moves + client decisions) — both portals read these
+  jobMetaById: Record<string, JobStatusMeta>; // reason/category riding along an override
   commentsByJobId: Record<string, JobComment[]>; // card threads, oldest first (merged with fixture seed)
 }
 
@@ -46,6 +55,7 @@ const EMPTY: StoreShape = {
   sourcesEnabled: {},
   audit: [],
   jobStatusById: {},
+  jobMetaById: {},
   commentsByJobId: {},
 };
 
@@ -63,8 +73,28 @@ interface StoreCtx extends StoreShape {
   setTierQuota: (tier: string, quota: number) => void;
   setSourceEnabled: (source: JobSource, enabled: boolean) => void;
   logAudit: (actor: string, action: string, entity: string) => void;
-  setJobStatus: (jobId: string, status: JobStatus) => void;
+  setJobStatus: (jobId: string, status: JobStatus, meta?: JobStatusMeta) => void;
+  clearJobStatus: (jobId: string) => void; // undo a decision — job falls back to its fixture status
   addComment: (comment: JobComment) => void;
+}
+
+// Apply a status override (+ its reason meta) to a job shape.
+export function applyJobOverride<
+  T extends { id: string; status: JobStatus; reason?: string; rejectCategory?: RejectCategory },
+>(
+  job: T,
+  statusById: Record<string, JobStatus>,
+  metaById: Record<string, JobStatusMeta>,
+): T {
+  const status = statusById[job.id];
+  if (!status) return job;
+  const meta = metaById[job.id];
+  return {
+    ...job,
+    status,
+    reason: meta?.reason ?? job.reason,
+    rejectCategory: meta?.rejectCategory ?? job.rejectCategory,
+  };
 }
 
 // Merge a client's fixture documents with store uploads (uploads win per kind).
@@ -161,11 +191,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...s,
         sourcesEnabled: { ...s.sourcesEnabled, [source]: enabled },
       })),
-    setJobStatus: (jobId, status) =>
+    setJobStatus: (jobId, status, meta) =>
       update((s) => ({
         ...s,
         jobStatusById: { ...s.jobStatusById, [jobId]: status },
+        jobMetaById: meta
+          ? { ...s.jobMetaById, [jobId]: meta }
+          : s.jobMetaById,
       })),
+    clearJobStatus: (jobId) =>
+      update((s) => {
+        const status = { ...s.jobStatusById };
+        const meta = { ...s.jobMetaById };
+        delete status[jobId];
+        delete meta[jobId];
+        return { ...s, jobStatusById: status, jobMetaById: meta };
+      }),
     addComment: (comment) =>
       update((s) => ({
         ...s,

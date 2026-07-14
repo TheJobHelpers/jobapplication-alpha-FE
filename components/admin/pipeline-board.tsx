@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { useCurrentUser } from "@/components/shell/role-context";
-import { useStore } from "@/components/shell/store-context";
+import { applyJobOverride, useStore } from "@/components/shell/store-context";
 import { CommentCount } from "@/components/ui/job-comments";
 import { JobDetailModal } from "@/components/ui/job-detail-modal";
 import { MatchScore } from "@/components/ui/match-score";
@@ -43,14 +43,12 @@ type Group = "none" | "client" | "member";
 export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
   const { user } = useCurrentUser();
   // Status lives in the shared store so moves persist and the Client Portal
-  // sees them (My Jobs mirrors this board).
-  const { jobStatusById, setJobStatus, logAudit } = useStore();
+  // sees them (My Jobs mirrors this board). Client decisions land here too —
+  // an acceptance shows up in Approved, a decline in Closed with its reason.
+  const { jobStatusById, jobMetaById, setJobStatus, logAudit } = useStore();
   const jobs = useMemo(
-    () =>
-      initial.map((j) =>
-        jobStatusById[j.id] ? { ...j, status: jobStatusById[j.id] } : j,
-      ),
-    [initial, jobStatusById],
+    () => initial.map((j) => applyJobOverride(j, jobStatusById, jobMetaById)),
+    [initial, jobStatusById, jobMetaById],
   );
   const [group, setGroup] = useState<Group>("none");
   const [assignee, setAssignee] = useState("all");

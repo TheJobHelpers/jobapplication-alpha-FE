@@ -55,7 +55,7 @@ export default function ClientDashboard() {
             waiting for your review
           </h2>
           <p className="mt-1 max-w-lg text-[13.5px] text-muted">
-            Approve the ones you’d like us to apply to. If one isn’t right, tell us
+            Accept the ones you’d like us to apply to. If one isn’t right, tell us
             why. It helps us find better matches next time.
           </p>
           <Link href="/client/review" className="mt-4 inline-block">

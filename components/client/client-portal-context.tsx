@@ -1,14 +1,17 @@
 "use client";
 
-// Client portal data layer. Loads the signed-in client + their jobs from the mock
-// API, and layers the client's own approve/reject decisions on top (persisted in
-// localStorage until the backend). Everything a client screen needs comes from
-// useClientPortal(), so pages stay declarative.
+// Client portal data layer. Loads the signed-in client + their jobs from the
+// mock API, then layers the shared store's status overrides on top. Decisions
+// (accept / decline-with-reason) write to the SAME store the internal portal
+// reads, so the team's pipeline sees an acceptance the moment it happens —
+// that's the flow: review → accepted → team applies. Everything a client
+// screen needs comes from useClientPortal(), so pages stay declarative.
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { useStore } from "@/components/shell/store-context";
+import { applyJobOverride, useStore } from "@/components/shell/store-context";
 import {
   api,
+  REJECT_CATEGORY_LABEL,
   type ApplicationJob,
   type Client,
   type JobStatus,
@@ -30,6 +33,7 @@ interface ClientPortalCtx {
   reviewQueue: ApplicationJob[]; // still awaiting the client's decision
   approve: (jobId: string) => void;
   reject: (jobId: string, category: RejectCategory, reason: string) => void;
+  undo: (jobId: string) => void; // revert a just-made decision
 }
 
 const Ctx = createContext<ClientPortalCtx | null>(null);
@@ -86,16 +90,17 @@ export function ClientPortalProvider({
   }, [clientId]);
 
   const decisions = safeParse(useSession(CLIENT_DECISIONS_KEY));
-  // Team moves on the pipeline (assigned → applying → applied → …) land here,
-  // so "we applied" shows up without the client asking. A team override is the
-  // later truth and wins over the client's earlier approve decision.
-  const { jobStatusById } = useStore();
+  // The shared store carries team moves (assigned → applying → applied → …)
+  // AND the client's own decisions, so both portals read one truth. The
+  // session-stored decisions remain as a fallback for records made before the
+  // store carried them.
+  const { jobStatusById, jobMetaById, setJobStatus, logAudit } = useStore();
 
   if (!data) return <CenterLoader />;
 
   const jobs = data.jobs.map((j) => {
-    const override = jobStatusById[j.id];
-    if (override) return { ...j, status: override };
+    if (jobStatusById[j.id])
+      return applyJobOverride(j, jobStatusById, jobMetaById);
     return applyDecision(j, decisions[j.id]);
   });
   const reviewQueue = jobs.filter((j) => j.status === "client_review");
@@ -104,17 +109,42 @@ export function ClientPortalProvider({
     writeSession(CLIENT_DECISIONS_KEY, JSON.stringify(next));
   }
 
+  const clientName = data.client.name;
+  const entity = (jobId: string) => {
+    const j = data.jobs.find((x) => x.id === jobId);
+    return j ? `${j.company} · ${j.title}` : jobId;
+  };
+
   const value: ClientPortalCtx = {
     client: data.client,
     jobs,
     reviewQueue,
-    approve: (jobId) =>
-      persist({ ...decisions, [jobId]: { status: "approved", at: today() } }),
-    reject: (jobId, category, reason) =>
+    approve: (jobId) => {
+      persist({ ...decisions, [jobId]: { status: "approved", at: today() } });
+      setJobStatus(jobId, "approved");
+      logAudit(clientName, "Accepted job", entity(jobId));
+    },
+    reject: (jobId, category, reason) => {
       persist({
         ...decisions,
         [jobId]: { status: "rejected", category, reason, at: today() },
-      }),
+      });
+      setJobStatus(jobId, "rejected", { reason, rejectCategory: category });
+      logAudit(
+        clientName,
+        `Declined job (${REJECT_CATEGORY_LABEL[category]})`,
+        entity(jobId),
+      );
+    },
+    undo: (jobId) => {
+      const next = { ...decisions };
+      delete next[jobId];
+      persist(next);
+      // Back to "awaiting review" explicitly (not a bare clear) — the job may
+      // only have been in review via a store override in the first place.
+      setJobStatus(jobId, "client_review", {});
+      logAudit(clientName, "Reverted decision", entity(jobId));
+    },
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

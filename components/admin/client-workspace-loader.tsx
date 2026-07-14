@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ClientWorkspace } from "@/components/admin/client-workspace";
-import { useStore } from "@/components/shell/store-context";
+import { applyJobOverride, useStore } from "@/components/shell/store-context";
 import { Panel } from "@/components/ui/panel";
 import { api, type ApplicationJob, type Client } from "@/lib/api";
 
@@ -20,7 +20,7 @@ type Resolved =
 export function ClientWorkspaceLoader() {
   const params = useParams<{ id: string }>();
   const id = params.id;
-  const { clients: created, jobStatusById } = useStore();
+  const { clients: created, jobStatusById, jobMetaById } = useStore();
   const [res, setRes] = useState<Resolved>({ state: "loading" });
 
   useEffect(() => {
@@ -65,10 +65,11 @@ export function ClientWorkspaceLoader() {
       </div>
     );
   }
-  // Pipeline moves persist in the store; apply them so the workspace opens on
-  // the same truth the board (and the client) sees.
+  // Pipeline moves and client decisions persist in the store; apply them so
+  // the workspace opens on the same truth the board (and the client) sees —
+  // client declines land in History with their reason, feeding the taste panel.
   const jobs = res.jobs.map((j) =>
-    jobStatusById[j.id] ? { ...j, status: jobStatusById[j.id] } : j,
+    applyJobOverride(j, jobStatusById, jobMetaById),
   );
   return <ClientWorkspace client={res.client} initialJobs={jobs} />;
 }
