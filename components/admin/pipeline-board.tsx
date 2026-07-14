@@ -8,7 +8,8 @@
 import { useMemo, useState } from "react";
 import { useCurrentUser } from "@/components/shell/role-context";
 import { useStore } from "@/components/shell/store-context";
-import { JobComments } from "@/components/ui/job-comments";
+import { CommentCount } from "@/components/ui/job-comments";
+import { JobDetailModal } from "@/components/ui/job-detail-modal";
 import { MatchScore } from "@/components/ui/match-score";
 import { STATUS_META, type ApplicationJob, type JobStatus } from "@/lib/api";
 import { canAssign, canTransition } from "@/lib/permissions";
@@ -260,51 +261,54 @@ function JobCard({
 }) {
   const meta = STATUS_META[job.status];
   const stale = job.updatedAt <= STALE_BEFORE;
+  const [detail, setDetail] = useState(false);
   return (
-    <div
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      className="cursor-grab rounded-md border border-panel-border bg-panel p-2.5 active:cursor-grabbing"
-      style={{ boxShadow: `inset 3px 0 0 0 ${meta.color}` }}
-    >
-      <p className="truncate text-[12.5px] font-medium text-zinc-100">{job.title}</p>
-      <p className="truncate text-[11px] text-muted">{job.company}</p>
-      {showClient && (
-        <p className="mt-0.5 truncate text-[11px] text-zinc-400">{job.clientName}</p>
-      )}
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <MatchScore score={job.matchScore} />
-        {job.assignedToName && (
-          <span className="truncate text-[10px] text-zinc-500">{job.assignedToName}</span>
-        )}
-      </div>
-      {job.reason && (job.status === "blocked" || job.status === "rejected") && (
-        <p
-          className="mt-1.5 text-[10.5px]"
-          style={{ color: meta.color }}
-          title={job.reason}
-        >
-          {job.reason}
-        </p>
-      )}
-      {stale && (
-        <span className="mt-1.5 inline-block rounded-full bg-status-interview/15 px-1.5 py-0.5 text-[9px] font-semibold text-status-interview">
-          Stale
-        </span>
-      )}
-      {/* draggable+preventDefault keeps typing in the thread from starting a
-          card drag */}
+    <>
       <div
         draggable
-        onDragStart={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onClick={() => setDetail(true)}
+        className="cursor-grab rounded-md border border-panel-border bg-panel p-2.5 transition-colors hover:border-zinc-600 active:cursor-grabbing"
+        style={{ boxShadow: `inset 3px 0 0 0 ${meta.color}` }}
+        title="Click for details & comments"
       >
-        <JobComments jobId={job.id} author={author} side="team" />
+        <p className="truncate text-[12.5px] font-medium text-zinc-100">{job.title}</p>
+        <p className="truncate text-[11px] text-muted">{job.company}</p>
+        {showClient && (
+          <p className="mt-0.5 truncate text-[11px] text-zinc-400">{job.clientName}</p>
+        )}
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <MatchScore score={job.matchScore} />
+          <CommentCount jobId={job.id} />
+          {job.assignedToName && (
+            <span className="truncate text-[10px] text-zinc-500">{job.assignedToName}</span>
+          )}
+        </div>
+        {job.reason && (job.status === "blocked" || job.status === "rejected") && (
+          <p
+            className="mt-1.5 text-[10.5px]"
+            style={{ color: meta.color }}
+            title={job.reason}
+          >
+            {job.reason}
+          </p>
+        )}
+        {stale && (
+          <span className="mt-1.5 inline-block rounded-full bg-status-interview/15 px-1.5 py-0.5 text-[9px] font-semibold text-status-interview">
+            Stale
+          </span>
+        )}
       </div>
-    </div>
+      {detail && (
+        <JobDetailModal
+          job={job}
+          author={author}
+          side="team"
+          onClose={() => setDetail(false)}
+        />
+      )}
+    </>
   );
 }
 

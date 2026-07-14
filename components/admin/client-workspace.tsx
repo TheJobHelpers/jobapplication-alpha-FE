@@ -18,7 +18,8 @@ import { SourcingPreferences } from "@/components/admin/sourcing-preferences";
 import { useCurrentUser } from "@/components/shell/role-context";
 import { effectiveDocuments, useStore } from "@/components/shell/store-context";
 import { Button } from "@/components/ui/button";
-import { JobComments } from "@/components/ui/job-comments";
+import { CommentCount } from "@/components/ui/job-comments";
+import { JobDetailModal } from "@/components/ui/job-detail-modal";
 import { MatchScore } from "@/components/ui/match-score";
 import { Panel } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -425,25 +426,40 @@ function ShortlistRow({
 }
 
 function ActiveRow({ job, author }: { job: ApplicationJob; author: string }) {
+  const [detail, setDetail] = useState(false);
   return (
-    <div className="px-4 py-3">
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium text-zinc-100">
-            {job.title}
-          </p>
-          <p className="truncate text-[12px] text-muted">
-            {job.company} · {job.location}
-          </p>
+    <>
+      <div
+        className="cursor-pointer px-4 py-3 transition-colors hover:bg-zinc-800/30"
+        onClick={() => setDetail(true)}
+        title="Click for details & comments"
+      >
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-medium text-zinc-100">
+              {job.title}
+            </p>
+            <p className="truncate text-[12px] text-muted">
+              {job.company} · {job.location}
+            </p>
+          </div>
+          <CommentCount jobId={job.id} />
+          <MatchScore score={job.matchScore} className="shrink-0" />
+          <StatusChip status={job.status} className="shrink-0" />
         </div>
-        <MatchScore score={job.matchScore} className="shrink-0" />
-        <StatusChip status={job.status} className="shrink-0" />
+        {job.reason && job.status === "blocked" && (
+          <p className="mt-1.5 text-[11.5px] text-status-blocked">{job.reason}</p>
+        )}
       </div>
-      {job.reason && job.status === "blocked" && (
-        <p className="mt-1.5 text-[11.5px] text-status-blocked">{job.reason}</p>
+      {detail && (
+        <JobDetailModal
+          job={job}
+          author={author}
+          side="team"
+          onClose={() => setDetail(false)}
+        />
       )}
-      <JobComments jobId={job.id} author={author} side="team" />
-    </div>
+    </>
   );
 }
 

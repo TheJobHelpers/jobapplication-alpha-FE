@@ -7,9 +7,11 @@
 // (06/08 UX — one truth, two views).
 
 import Link from "next/link";
+import { useState } from "react";
 import { useClientPortal } from "@/components/client/client-portal-context";
 import { Button } from "@/components/ui/button";
-import { JobComments } from "@/components/ui/job-comments";
+import { CommentCount } from "@/components/ui/job-comments";
+import { JobDetailModal } from "@/components/ui/job-detail-modal";
 import { MatchScore } from "@/components/ui/match-score";
 import { Panel } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -163,50 +165,61 @@ function BoardCard({
   showChip: boolean;
 }) {
   const { client } = useClientPortal();
+  const [detail, setDetail] = useState(false);
   const isReview = job.status === "client_review";
 
   return (
-    <div className="rounded-lg border border-panel-border bg-panel p-3.5 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[13px] font-semibold leading-snug">{job.title}</p>
-        {job.matchScore !== undefined && (
-          <MatchScore score={job.matchScore} className="mt-0.5 shrink-0" />
-        )}
-      </div>
-      <p className="mt-1 truncate text-[12px] text-muted">
-        {job.company}
-        {job.location ? ` · ${job.location}` : ""}
-      </p>
-
-      {job.status === "blocked" && job.reason && (
-        <p className="mt-2.5 rounded-md bg-status-blocked/10 px-2 py-1.5 text-[11px] leading-snug text-status-blocked">
-          {job.reason}
-        </p>
-      )}
-      {job.status === "rejected" && job.rejectCategory && (
-        <p className="mt-2 text-[11px] text-muted">
-          Reason: {REJECT_CATEGORY_LABEL[job.rejectCategory]}
-        </p>
-      )}
-
-      {(showChip || isReview) && (
-        <div className="mt-3 flex items-center justify-between gap-2">
-          {showChip ? (
-            <StatusChip status={job.status} variant="client" />
-          ) : (
-            <span />
+    <>
+      <div
+        className="cursor-pointer rounded-lg border border-panel-border bg-panel p-3.5 shadow-sm transition-colors hover:border-[var(--accent)]/50"
+        onClick={() => setDetail(true)}
+        title="Click for details & comments"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[13px] font-semibold leading-snug">{job.title}</p>
+          {job.matchScore !== undefined && (
+            <MatchScore score={job.matchScore} className="mt-0.5 shrink-0" />
           )}
+        </div>
+        <p className="mt-1 truncate text-[12px] text-muted">
+          {job.company}
+          {job.location ? ` · ${job.location}` : ""}
+        </p>
+
+        {job.status === "blocked" && job.reason && (
+          <p className="mt-2.5 rounded-md bg-status-blocked/10 px-2 py-1.5 text-[11px] leading-snug text-status-blocked">
+            {job.reason}
+          </p>
+        )}
+        {job.status === "rejected" && job.rejectCategory && (
+          <p className="mt-2 text-[11px] text-muted">
+            Reason: {REJECT_CATEGORY_LABEL[job.rejectCategory]}
+          </p>
+        )}
+
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2.5">
+            {showChip && <StatusChip status={job.status} variant="client" />}
+            <CommentCount jobId={job.id} />
+          </span>
           {isReview && (
-            <Link href="/client/review">
+            <Link href="/client/review" onClick={(e) => e.stopPropagation()}>
               <Button variant="primary" size="sm">
                 Review
               </Button>
             </Link>
           )}
         </div>
+      </div>
+      {detail && (
+        <JobDetailModal
+          job={job}
+          author={client.name}
+          side="client"
+          onClose={() => setDetail(false)}
+        />
       )}
-      <JobComments jobId={job.id} author={client.name} side="client" />
-    </div>
+    </>
   );
 }
 
@@ -241,43 +254,61 @@ function ListView({ jobs }: { jobs: ApplicationJob[] }) {
 
 function JobRow({ job }: { job: ApplicationJob }) {
   const { client } = useClientPortal();
+  const [detail, setDetail] = useState(false);
   const isReview = job.status === "client_review";
   const dimmed = ["rejected", "expired", "closed"].includes(job.status);
 
   return (
-    <div className={"px-4 py-3 " + (dimmed ? "opacity-70" : "")}>
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[13.5px] font-medium">{job.title}</p>
-          <p className="truncate text-[12.5px] text-muted">
-            {job.company} · {job.location}
-          </p>
+    <>
+      <div
+        className={
+          "cursor-pointer px-4 py-3 transition-colors hover:bg-[color-mix(in_srgb,var(--panel-border)_35%,transparent)] " +
+          (dimmed ? "opacity-70" : "")
+        }
+        onClick={() => setDetail(true)}
+        title="Click for details & comments"
+      >
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13.5px] font-medium">{job.title}</p>
+            <p className="truncate text-[12.5px] text-muted">
+              {job.company} · {job.location}
+            </p>
+          </div>
+          <CommentCount jobId={job.id} />
+          <StatusChip status={job.status} variant="client" />
+          {isReview && (
+            <Link href="/client/review" onClick={(e) => e.stopPropagation()}>
+              <Button variant="secondary" size="sm">
+                Review
+              </Button>
+            </Link>
+          )}
         </div>
-        <StatusChip status={job.status} variant="client" />
-        {isReview && (
-          <Link href="/client/review">
-            <Button variant="secondary" size="sm">
-              Review
-            </Button>
-          </Link>
+
+        {job.status === "blocked" && job.reason && (
+          <p className="mt-1.5 text-[12.5px] text-status-blocked">
+            What we need: <span className="text-foreground">{job.reason}</span>
+          </p>
+        )}
+        {job.status === "rejected" && (
+          <p className="mt-1.5 text-[12px] text-muted">
+            You declined
+            {job.rejectCategory
+              ? ` (${REJECT_CATEGORY_LABEL[job.rejectCategory]})`
+              : ""}
+            {job.reason ? `: “${job.reason}”` : ""}
+          </p>
         )}
       </div>
-
-      {job.status === "blocked" && job.reason && (
-        <p className="mt-1.5 text-[12.5px] text-status-blocked">
-          What we need: <span className="text-foreground">{job.reason}</span>
-        </p>
+      {detail && (
+        <JobDetailModal
+          job={job}
+          author={client.name}
+          side="client"
+          onClose={() => setDetail(false)}
+        />
       )}
-      {job.status === "rejected" && (
-        <p className="mt-1.5 text-[12px] text-muted">
-          You declined
-          {job.rejectCategory
-            ? ` (${REJECT_CATEGORY_LABEL[job.rejectCategory]})`
-            : ""}
-          {job.reason ? `: “${job.reason}”` : ""}
-        </p>
-      )}
-      <JobComments jobId={job.id} author={client.name} side="client" />
-    </div>
+    </>
   );
 }

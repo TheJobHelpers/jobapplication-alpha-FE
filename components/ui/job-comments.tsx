@@ -20,7 +20,6 @@ export function JobComments({
 }) {
   const { commentsByJobId, addComment } = useStore();
   const [seed, setSeed] = useState<JobComment[]>([]);
-  const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
 
   useEffect(() => {
@@ -44,59 +43,67 @@ export function JobComments({
   }
 
   return (
-    <div className="mt-2">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex items-center gap-1.5 text-[11px] font-medium text-muted transition-colors hover:text-foreground"
-      >
-        <CommentIcon />
-        {comments.length > 0 ? (
-          <span className="font-mono tabular-nums">{comments.length}</span>
-        ) : (
-          <span>Comment</span>
-        )}
-      </button>
-
-      {open && (
-        <div className="mt-2 space-y-2 border-t border-panel-border pt-2">
-          {comments.map((c) => (
-            <div key={c.id} className="text-[11.5px] leading-snug">
-              <p className="flex items-baseline gap-1.5">
-                <span className="font-semibold text-foreground">{c.author}</span>
-                <SidePill side={c.side} />
-                <span className="font-mono text-[10px] tabular-nums text-muted">
-                  {c.at}
-                </span>
-              </p>
-              <p className="mt-0.5 text-muted">{c.text}</p>
-            </div>
-          ))}
-          <div className="flex items-center gap-1.5">
-            <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              placeholder="Write a comment…"
-              aria-label="Write a comment"
-              className="h-7 min-w-0 flex-1 rounded-md border border-panel-border bg-transparent px-2 text-[11.5px] text-foreground outline-none placeholder:text-muted focus:border-[var(--accent)]"
-            />
-            <button
-              onClick={send}
-              disabled={!text.trim()}
-              className="h-7 rounded-md bg-[var(--accent)] px-2 text-[11px] font-semibold text-white transition-opacity disabled:opacity-40"
-            >
-              Send
-            </button>
+    <div className="space-y-2.5">
+      {comments.length === 0 ? (
+        <p className="text-[11.5px] text-muted">
+          No comments yet — anything the {side === "team" ? "client" : "team"}{" "}
+          should know lands here.
+        </p>
+      ) : (
+        comments.map((c) => (
+          <div key={c.id} className="text-[11.5px] leading-snug">
+            <p className="flex items-baseline gap-1.5">
+              <span className="font-semibold text-foreground">{c.author}</span>
+              <SidePill side={c.side} />
+              <span className="font-mono text-[10px] tabular-nums text-muted">
+                {c.at}
+              </span>
+            </p>
+            <p className="mt-0.5 text-muted">{c.text}</p>
           </div>
-        </div>
+        ))
       )}
+      <div className="flex items-center gap-1.5">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              send();
+            }
+          }}
+          placeholder="Write a comment…"
+          aria-label="Write a comment"
+          className="h-7 min-w-0 flex-1 rounded-md border border-panel-border bg-transparent px-2 text-[11.5px] text-foreground outline-none placeholder:text-muted focus:border-[var(--accent)]"
+        />
+        <button
+          onClick={send}
+          disabled={!text.trim()}
+          className="h-7 rounded-md bg-[var(--accent)] px-2 text-[11px] font-semibold text-white transition-opacity disabled:opacity-40"
+        >
+          Send
+        </button>
+      </div>
     </div>
+  );
+}
+
+// Small read-only badge for cards — the thread itself lives in the detail
+// popup. Hidden when the thread is empty.
+export function CommentCount({ jobId }: { jobId: string }) {
+  const { commentsByJobId } = useStore();
+  const [seedCount, setSeedCount] = useState(0);
+  useEffect(() => {
+    api.getJobComments(jobId).then((c) => setSeedCount(c.length));
+  }, [jobId]);
+  const n = seedCount + (commentsByJobId[jobId]?.length ?? 0);
+  if (n === 0) return null;
+  return (
+    <span className="flex items-center gap-1 text-[11px] text-muted">
+      <CommentIcon />
+      <span className="font-mono tabular-nums">{n}</span>
+    </span>
   );
 }
 
