@@ -99,7 +99,7 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       <aside className="fixed inset-y-0 left-0 flex w-56 flex-col border-r border-panel-border bg-panel">
         <div className="px-4 py-4">
-          <Logo size={30} subtitle="Operations" />
+          <Logo size={30} />
         </div>
 
         <nav className="flex-1 space-y-0.5 px-2 py-2">

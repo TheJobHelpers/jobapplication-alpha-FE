@@ -24,9 +24,12 @@ export default function Home() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-12 px-6 py-24">
       <div className="space-y-4 text-center">
-        <Logo size={40} showName={false} className="justify-center" />
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+        <Logo size={44} showName={false} className="justify-center" />
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
           The Job Helpers
+        </p>
+        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+          Job Application Portal
         </h1>
         <p className="mx-auto max-w-xl text-[14px] text-muted">
           One platform, two portals. Pick yours.
@@ -43,7 +46,9 @@ export default function Home() {
           >
             <div className="h-1.5 w-8 rounded-full bg-[var(--accent)] transition-all group-hover:w-12" />
             <div>
-              <h2 className="text-[15px] font-semibold">{p.name}</h2>
+              <h2 className="text-[15px] font-semibold text-foreground">
+                {p.name}
+              </h2>
               <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
                 {p.audience}
               </p>

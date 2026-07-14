@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The Job Helpers",
-  description: "Job application management, done for you.",
+  title: "Job Application Portal · The Job Helpers",
+  description: "The Job Helpers' job application platform for clients and the JA team.",
   icons: { icon: "/tjh.png", apple: "/tjh.png" },
 };
 
