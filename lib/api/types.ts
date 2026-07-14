@@ -183,6 +183,21 @@ export interface QuotaTier {
   note: string;
 }
 
+// ── Comments ──────────────────────────────────────────────────────────
+// A lightweight thread on a job card, shared by both portals: the team
+// comments from the pipeline/workspace, the client from My Jobs. This is the
+// unblock/clarify channel until real notifications exist.
+export type CommentSide = "team" | "client";
+
+export interface JobComment {
+  id: string;
+  jobId: string;
+  author: string;
+  side: CommentSide;
+  text: string;
+  at: string; // ISO date
+}
+
 // Audit trail entry (Admin → audit log).
 export interface AuditEntry {
   id: string;

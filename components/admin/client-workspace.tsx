@@ -18,6 +18,7 @@ import { SourcingPreferences } from "@/components/admin/sourcing-preferences";
 import { useCurrentUser } from "@/components/shell/role-context";
 import { effectiveDocuments, useStore } from "@/components/shell/store-context";
 import { Button } from "@/components/ui/button";
+import { JobComments } from "@/components/ui/job-comments";
 import { MatchScore } from "@/components/ui/match-score";
 import { Panel } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -254,6 +255,7 @@ export function ClientWorkspace({
               selected={selected}
               newIds={newIds}
               selectable={editable}
+              author={user.name}
               onToggle={toggleSelect}
             />
           )}
@@ -319,6 +321,7 @@ function ThisWeek({
   selected,
   newIds,
   selectable,
+  author,
   onToggle,
 }: {
   shortlist: ApplicationJob[];
@@ -326,6 +329,7 @@ function ThisWeek({
   selected: Set<string>;
   newIds: Set<string>;
   selectable: boolean;
+  author: string;
   onToggle: (id: string) => void;
 }) {
   return (
@@ -360,7 +364,9 @@ function ThisWeek({
           {assigned.length === 0 ? (
             <Empty>Nothing assigned yet.</Empty>
           ) : (
-            assigned.map((job) => <ActiveRow key={job.id} job={job} />)
+            assigned.map((job) => (
+              <ActiveRow key={job.id} job={job} author={author} />
+            ))
           )}
         </Panel>
       </section>
@@ -418,7 +424,7 @@ function ShortlistRow({
   );
 }
 
-function ActiveRow({ job }: { job: ApplicationJob }) {
+function ActiveRow({ job, author }: { job: ApplicationJob; author: string }) {
   return (
     <div className="px-4 py-3">
       <div className="flex items-center gap-3">
@@ -436,6 +442,7 @@ function ActiveRow({ job }: { job: ApplicationJob }) {
       {job.reason && job.status === "blocked" && (
         <p className="mt-1.5 text-[11.5px] text-status-blocked">{job.reason}</p>
       )}
+      <JobComments jobId={job.id} author={author} side="team" />
     </div>
   );
 }

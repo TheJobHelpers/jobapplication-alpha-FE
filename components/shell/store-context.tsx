@@ -11,7 +11,9 @@ import type {
   ClientDocument,
   ClientPreferences,
   ClientStage,
+  JobComment,
   JobSource,
+  JobStatus,
   QuestionnaireState,
   QuestionnaireStatus,
   TeamMember,
@@ -29,6 +31,8 @@ interface StoreShape {
   tierQuotas: Record<string, number>; // quota-tier overrides (Admin)
   sourcesEnabled: Partial<Record<JobSource, boolean>>; // org source toggles
   audit: AuditEntry[]; // UI actions, newest first (merged with fixture log)
+  jobStatusById: Record<string, JobStatus>; // status overrides (pipeline moves) — both portals read these
+  commentsByJobId: Record<string, JobComment[]>; // card threads, oldest first (merged with fixture seed)
 }
 
 const EMPTY: StoreShape = {
@@ -41,6 +45,8 @@ const EMPTY: StoreShape = {
   tierQuotas: {},
   sourcesEnabled: {},
   audit: [],
+  jobStatusById: {},
+  commentsByJobId: {},
 };
 
 interface StoreCtx extends StoreShape {
@@ -57,6 +63,8 @@ interface StoreCtx extends StoreShape {
   setTierQuota: (tier: string, quota: number) => void;
   setSourceEnabled: (source: JobSource, enabled: boolean) => void;
   logAudit: (actor: string, action: string, entity: string) => void;
+  setJobStatus: (jobId: string, status: JobStatus) => void;
+  addComment: (comment: JobComment) => void;
 }
 
 // Merge a client's fixture documents with store uploads (uploads win per kind).
@@ -152,6 +160,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       update((s) => ({
         ...s,
         sourcesEnabled: { ...s.sourcesEnabled, [source]: enabled },
+      })),
+    setJobStatus: (jobId, status) =>
+      update((s) => ({
+        ...s,
+        jobStatusById: { ...s.jobStatusById, [jobId]: status },
+      })),
+    addComment: (comment) =>
+      update((s) => ({
+        ...s,
+        commentsByJobId: {
+          ...s.commentsByJobId,
+          [comment.jobId]: [...(s.commentsByJobId[comment.jobId] ?? []), comment],
+        },
       })),
     logAudit: (actor, action, entity) =>
       update((s) => ({

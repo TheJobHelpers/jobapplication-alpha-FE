@@ -7,6 +7,7 @@ import type {
   AuditEntry,
   Client,
   ClientDocument,
+  JobComment,
   QuotaTier,
   TeamMember,
 } from "./types";
@@ -142,6 +143,15 @@ export const CLIENT_DOCUMENTS: Record<string, ClientDocument[]> = {
     { kind: "resume", fileName: "sam-whitfield-resume.pdf", uploadedAt: "2026-03-15", uploadedBy: "Sam Whitfield" },
   ],
 };
+
+// Seed comment threads on jobs — the team↔client channel on cards. New
+// comments from either portal append via the localStorage store.
+export const JOB_COMMENTS: JobComment[] = [
+  { id: "cm1", jobId: "j5", author: "N. Jayasuriya", side: "team", text: "The application portal needs a US phone number before we can submit — could you add one?", at: "2026-07-12" },
+  { id: "cm2", jobId: "j5", author: "Devin Cross", side: "client", text: "Setting up a Google Voice number this week, will confirm here.", at: "2026-07-13" },
+  { id: "cm3", jobId: "j2", author: "S. Fernando", side: "team", text: "Submitted with the updated resume. Recruiter screen usually follows in about a week.", at: "2026-07-12" },
+  { id: "cm4", jobId: "j15", author: "N. Jayasuriya", side: "team", text: "Second-round interview confirmed for Thursday.", at: "2026-07-12" },
+];
 
 // Default weekly quotas per tier (Admin → quotas & tiers). Editable in the UI;
 // overrides persist in the localStorage store until the backend.

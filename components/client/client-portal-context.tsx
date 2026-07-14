@@ -6,6 +6,7 @@
 // useClientPortal(), so pages stay declarative.
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { useStore } from "@/components/shell/store-context";
 import {
   api,
   type ApplicationJob,
@@ -85,10 +86,18 @@ export function ClientPortalProvider({
   }, [clientId]);
 
   const decisions = safeParse(useSession(CLIENT_DECISIONS_KEY));
+  // Team moves on the pipeline (assigned → applying → applied → …) land here,
+  // so "we applied" shows up without the client asking. A team override is the
+  // later truth and wins over the client's earlier approve decision.
+  const { jobStatusById } = useStore();
 
   if (!data) return <CenterLoader />;
 
-  const jobs = data.jobs.map((j) => applyDecision(j, decisions[j.id]));
+  const jobs = data.jobs.map((j) => {
+    const override = jobStatusById[j.id];
+    if (override) return { ...j, status: override };
+    return applyDecision(j, decisions[j.id]);
+  });
   const reviewQueue = jobs.filter((j) => j.status === "client_review");
 
   function persist(next: Decisions) {

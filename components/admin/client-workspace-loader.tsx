@@ -20,7 +20,7 @@ type Resolved =
 export function ClientWorkspaceLoader() {
   const params = useParams<{ id: string }>();
   const id = params.id;
-  const { clients: created } = useStore();
+  const { clients: created, jobStatusById } = useStore();
   const [res, setRes] = useState<Resolved>({ state: "loading" });
 
   useEffect(() => {
@@ -65,5 +65,10 @@ export function ClientWorkspaceLoader() {
       </div>
     );
   }
-  return <ClientWorkspace client={res.client} initialJobs={res.jobs} />;
+  // Pipeline moves persist in the store; apply them so the workspace opens on
+  // the same truth the board (and the client) sees.
+  const jobs = res.jobs.map((j) =>
+    jobStatusById[j.id] ? { ...j, status: jobStatusById[j.id] } : j,
+  );
+  return <ClientWorkspace client={res.client} initialJobs={jobs} />;
 }

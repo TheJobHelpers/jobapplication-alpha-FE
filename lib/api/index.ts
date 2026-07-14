@@ -12,6 +12,7 @@ import {
   CURRENT_WEEK,
   GENERIC_IMPORT,
   IMPORT_SAMPLES,
+  JOB_COMMENTS,
   JOBS,
   QUOTA_TIERS,
   TEAM,
@@ -22,6 +23,7 @@ import type {
   AuditEntry,
   Client,
   ClientDocument,
+  JobComment,
   JobStatus,
   QuotaTier,
   TeamMember,
@@ -75,6 +77,10 @@ export const api = {
   },
   getQuotaTiers(): Promise<QuotaTier[]> {
     return resolve(QUOTA_TIERS);
+  },
+  // Seed comments for a job's thread (UI-added comments layer on via the store).
+  getJobComments(jobId: string): Promise<JobComment[]> {
+    return resolve(JOB_COMMENTS.filter((c) => c.jobId === jobId));
   },
 
   // Per-member workload for the Team page (manager/admin oversight).

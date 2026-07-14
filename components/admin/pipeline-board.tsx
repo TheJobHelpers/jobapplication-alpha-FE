@@ -7,6 +7,8 @@
 
 import { useMemo, useState } from "react";
 import { useCurrentUser } from "@/components/shell/role-context";
+import { useStore } from "@/components/shell/store-context";
+import { JobComments } from "@/components/ui/job-comments";
 import { MatchScore } from "@/components/ui/match-score";
 import { STATUS_META, type ApplicationJob, type JobStatus } from "@/lib/api";
 import { canAssign, canTransition } from "@/lib/permissions";
@@ -39,7 +41,16 @@ type Group = "none" | "client" | "member";
 
 export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
   const { user } = useCurrentUser();
-  const [jobs, setJobs] = useState(initial);
+  // Status lives in the shared store so moves persist and the Client Portal
+  // sees them (My Jobs mirrors this board).
+  const { jobStatusById, setJobStatus, logAudit } = useStore();
+  const jobs = useMemo(
+    () =>
+      initial.map((j) =>
+        jobStatusById[j.id] ? { ...j, status: jobStatusById[j.id] } : j,
+      ),
+    [initial, jobStatusById],
+  );
   const [group, setGroup] = useState<Group>("none");
   const [assignee, setAssignee] = useState("all");
   const [client, setClient] = useState("all");
@@ -73,11 +84,14 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
       setDragId(null);
       return;
     }
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === dragJob.id ? { ...j, status: colPrimary } : j,
-      ),
-    );
+    if (dragJob.status !== colPrimary) {
+      setJobStatus(dragJob.id, colPrimary);
+      logAudit(
+        user.name,
+        `Moved job to ${STATUS_META[colPrimary].label}`,
+        `${dragJob.company} · ${dragJob.title} (${dragJob.clientName})`,
+      );
+    }
     setDragId(null);
   }
 
@@ -211,6 +225,7 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
                             <JobCard
                               key={job.id}
                               job={job}
+                              author={user.name}
                               showClient={group !== "client"}
                               onDragStart={() => setDragId(job.id)}
                               onDragEnd={() => setDragId(null)}
@@ -232,11 +247,13 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
 
 function JobCard({
   job,
+  author,
   showClient,
   onDragStart,
   onDragEnd,
 }: {
   job: ApplicationJob;
+  author: string;
   showClient: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
@@ -276,6 +293,17 @@ function JobCard({
           Stale
         </span>
       )}
+      {/* draggable+preventDefault keeps typing in the thread from starting a
+          card drag */}
+      <div
+        draggable
+        onDragStart={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
+        <JobComments jobId={job.id} author={author} side="team" />
+      </div>
     </div>
   );
 }

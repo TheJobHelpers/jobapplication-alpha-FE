@@ -7,9 +7,9 @@
 // (06/08 UX — one truth, two views).
 
 import Link from "next/link";
-import { useState } from "react";
 import { useClientPortal } from "@/components/client/client-portal-context";
 import { Button } from "@/components/ui/button";
+import { JobComments } from "@/components/ui/job-comments";
 import { MatchScore } from "@/components/ui/match-score";
 import { Panel } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -17,10 +17,7 @@ import {
   REJECT_CATEGORY_LABEL,
   type ApplicationJob,
   type JobStatus,
-  type RejectCategory,
 } from "@/lib/api";
-
-const CATEGORIES = Object.keys(REJECT_CATEGORY_LABEL) as RejectCategory[];
 import {
   CLIENT_JOBS_VIEW_KEY,
   useSession,
@@ -28,25 +25,28 @@ import {
 } from "@/lib/session";
 
 // Client-facing board columns, left-to-right progression. "Action needed"
-// (blocked) gets its own column so the client can't miss it. Five columns fill
-// the width comfortably; cards carry a status chip to disambiguate within a column.
+// (blocked) gets its own column so the client can't miss it, and "Applied" is
+// separate from "In progress" so the client sees the moment the team submits.
+// Cards carry a status chip to disambiguate within a grouped column.
 const COLUMNS: { key: string; label: string; color: string; statuses: JobStatus[] }[] = [
   { key: "review", label: "Your review", color: "var(--status-review)", statuses: ["client_review"] },
   { key: "action", label: "Action needed", color: "var(--status-blocked)", statuses: ["blocked"] },
-  { key: "progress", label: "In progress", color: "var(--status-applied)", statuses: ["approved", "in_progress", "assigned", "applying", "applied"] },
+  { key: "progress", label: "In progress", color: "var(--status-progress)", statuses: ["approved", "in_progress", "assigned"] },
+  { key: "applied", label: "Applied", color: "var(--status-applied)", statuses: ["applying", "applied"] },
   { key: "outcomes", label: "Interviews & offers", color: "var(--status-offer)", statuses: ["interviewing", "offer"] },
   { key: "closed", label: "Closed", color: "var(--status-expired)", statuses: ["rejected", "expired", "closed"] },
 ];
 
 // Columns whose cards should show a status chip (they group several statuses).
-const MULTI = new Set(["progress", "outcomes", "closed"]);
+const MULTI = new Set(["progress", "applied", "outcomes", "closed"]);
 
 // List groups, friendliest-first.
 const GROUPS: { title: string; note?: string; statuses: JobStatus[] }[] = [
   { title: "Action needed", note: "We need something from you to move these forward.", statuses: ["blocked"] },
   { title: "Waiting for your review", statuses: ["client_review"] },
   { title: "Interviews & offers", statuses: ["interviewing", "offer"] },
-  { title: "In progress", statuses: ["approved", "in_progress", "assigned", "applying", "applied"] },
+  { title: "Applied", note: "Submitted — waiting to hear back.", statuses: ["applying", "applied"] },
+  { title: "In progress", statuses: ["approved", "in_progress", "assigned"] },
   { title: "Not moving forward", statuses: ["rejected", "expired", "closed"] },
 ];
 
@@ -162,6 +162,7 @@ function BoardCard({
   job: ApplicationJob;
   showChip: boolean;
 }) {
+  const { client } = useClientPortal();
   const isReview = job.status === "client_review";
 
   return (
@@ -204,6 +205,7 @@ function BoardCard({
           )}
         </div>
       )}
+      <JobComments jobId={job.id} author={client.name} side="client" />
     </div>
   );
 }
@@ -238,6 +240,7 @@ function ListView({ jobs }: { jobs: ApplicationJob[] }) {
 }
 
 function JobRow({ job }: { job: ApplicationJob }) {
+  const { client } = useClientPortal();
   const isReview = job.status === "client_review";
   const dimmed = ["rejected", "expired", "closed"].includes(job.status);
 
@@ -274,6 +277,7 @@ function JobRow({ job }: { job: ApplicationJob }) {
           {job.reason ? `: “${job.reason}”` : ""}
         </p>
       )}
+      <JobComments jobId={job.id} author={client.name} side="client" />
     </div>
   );
 }
