@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddJobsForm } from "@/components/admin/add-jobs-form";
+import { LoadJobsTab } from "@/components/admin/load-jobs-tab";
 import {
   effectiveQuestionnaire,
   QuestionnairePanel,
@@ -64,7 +65,7 @@ const HISTORY_STATUSES = new Set<JobStatus>(["rejected", "closed", "expired"]);
 const byScore = (a: ApplicationJob, b: ApplicationJob) =>
   (b.matchScore ?? 0) - (a.matchScore ?? 0);
 
-type Tab = "week" | "history" | "profile" | "documents";
+type Tab = "week" | "history" | "profile" | "documents" | "load";
 
 export function ClientWorkspace({
   client,
@@ -265,6 +266,9 @@ export function ClientWorkspace({
           {tab === "profile" && <Profile client={client} />}
           {tab === "documents" && (
             <Documents docs={docs} editable={editable} onUpload={handleUpload} />
+          )}
+          {tab === "load" && (
+            <LoadJobsTab client={client} onAdd={handleAdd} />
           )}
         </div>
 
@@ -707,6 +711,7 @@ function Tabs({
     { id: "week", label: "This Week" },
     { id: "history", label: `History${historyCount ? ` (${historyCount})` : ""}` },
     { id: "documents", label: "Documents" },
+    { id: "load", label: "Load Jobs" },
   ];
   return (
     <div className="flex gap-1 border-b border-panel-border">
