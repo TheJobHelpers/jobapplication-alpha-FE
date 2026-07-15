@@ -33,9 +33,9 @@ export default function QuestionnairePage({
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
   const [loaded, setLoaded] = useState(false);
-  // Server-side load state for the token: unknown → valid client / bad link.
   const [load, setLoad] = useState<"loading" | "ready" | "invalid">("loading");
   const [clientName, setClientName] = useState("");
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const submittedRef = useRef(false);
   // Latest answers, readable from the step-change effect without making it fire
   // on every keystroke. Updated in an effect (never during render).
@@ -177,7 +177,7 @@ export default function QuestionnairePage({
             <div className="flex flex-col items-center gap-3">
               <div className="flex items-center justify-center gap-3">
                 {index > 0 && (
-                  <button onClick={back}
+                  <button onClick={step.kind === "outro" ? () => setShowReviewModal(true) : back}
                     className={step.kind === "outro"
                       ? "text-xs text-muted hover:text-foreground hover:underline transition-colors mt-4"
                       : "rounded-lg border border-panel-border bg-panel px-5 py-2.5 text-sm font-medium text-muted transition-colors hover:border-muted hover:text-foreground hover:bg-panel-border/30"}>
@@ -195,6 +195,58 @@ export default function QuestionnairePage({
           )}
         </div>
       </main>
+
+      {showReviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-[fadein_.2s_ease]">
+          <div className="w-full max-w-2xl bg-panel border border-panel-border rounded-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-panel-border bg-background/50">
+              <h3 className="text-lg font-semibold text-foreground">Review your answers</h3>
+              <button
+                onClick={() => setShowReviewModal(false)}
+                className="text-muted hover:text-foreground text-sm font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5 divide-y divide-panel-border/50">
+              {CQFO_STEPS.map((s, idx) => {
+                if (s.kind === "intro" || s.kind === "outro") return null;
+                const isFirst = CQFO_STEPS.findIndex((st) => st.kind !== "intro" && st.kind !== "outro") === idx;
+                return (
+                  <div key={s.id} className={isFirst ? "flex justify-between items-start gap-4" : "flex justify-between items-start gap-4 pt-4"}>
+                    <div className="space-y-1 flex-1">
+                      <h4 className="text-sm font-semibold text-foreground leading-snug text-left">{s.title}</h4>
+                      <div className="text-sm mt-1 text-left">{renderAnswerSummary(s, answers)}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setIndex(idx);
+                        setShowReviewModal(false);
+                      }}
+                      className="text-xs text-accent-strong hover:underline font-medium transition-colors shrink-0 px-2.5 py-1 rounded hover:bg-accent/5 border border-transparent hover:border-accent-strong/20 mt-0.5"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-panel-border flex justify-end bg-background/50">
+              <button
+                onClick={() => setShowReviewModal(false)}
+                className="rounded-lg bg-accent-strong px-6 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -464,4 +516,81 @@ function Splash({ children }: { children: React.ReactNode }) {
       <p className="max-w-sm text-sm text-muted">{children}</p>
     </div>
   );
+}
+
+function renderAnswerSummary(s: Step, answers: Answers) {
+  const value = answers[s.id];
+  if (value === undefined || value === null) return <span className="text-muted italic">Not answered</span>;
+
+  switch (s.kind) {
+    case "choice":
+    case "text":
+      return <span className="text-foreground font-medium">{String(value) || <span className="text-muted italic">Empty</span>}</span>;
+
+    case "fields": {
+      const record = value as Record<string, string>;
+      return (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-1">
+          {s.fields.map((f) => (
+            <div key={f.key}>
+              <span className="text-muted">{f.label}:</span>{" "}
+              <span className="text-foreground font-medium">{record[f.key] || "—"}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    case "yesno": {
+      const obj = value as { answer?: string; detail?: string };
+      if (!obj.answer) return <span className="text-muted italic">Not answered</span>;
+      return (
+        <div className="text-xs text-foreground font-medium">
+          <span className="capitalize">{obj.answer}</span>
+          {obj.answer === "yes" && obj.detail && (
+            <div className="text-muted font-normal mt-1 border-l-2 border-panel-border pl-2 italic">
+              {obj.detail}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    case "range": {
+      const obj = value as { from?: string; to?: string; note?: string };
+      return (
+        <div className="text-xs text-foreground font-medium">
+          {obj.from || "—"} to {obj.to || "—"} {s.unit}/yr
+          {obj.note && (
+            <div className="text-muted font-normal mt-1 border-l-2 border-panel-border pl-2 italic text-left">
+              Note: {obj.note}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    case "repeat": {
+      const list = value as Record<string, string>[];
+      if (!list.length) return <span className="text-muted italic">None</span>;
+      return (
+        <div className="space-y-2 mt-1">
+          {list.map((item, i) => (
+            <div key={i} className="text-xs border border-panel-border rounded bg-background p-2 grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="col-span-2 text-[10px] text-muted font-semibold uppercase">{s.itemLabel} {i + 1}</div>
+              {s.fields.map((f) => (
+                <div key={f.key}>
+                  <span className="text-muted">{f.label}:</span>{" "}
+                  <span className="text-foreground font-medium">{item[f.key] || "—"}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    default:
+      return null;
+  }
 }
