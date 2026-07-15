@@ -119,7 +119,8 @@ export default function QuestionnairePage({
 
   // Fire confetti when reaching the outro step.
   useEffect(() => {
-    if (step.kind === "outro") {
+    const currentStep = CQFO_STEPS[index];
+    if (currentStep && currentStep.kind === "outro") {
       // Primary center burst
       confetti({
         particleCount: 100,
@@ -152,7 +153,7 @@ export default function QuestionnairePage({
       
       setTimeout(frame, 200);
     }
-  }, [step.kind]);
+  }, [index]);
 
   const step = CQFO_STEPS[index];
   const questionSteps = useMemo(() => CQFO_STEPS.filter((s) => s.kind !== "intro" && s.kind !== "outro"), []);
@@ -263,22 +264,22 @@ export default function QuestionnairePage({
             </div>
 
             {/* Modal Content */}
-            <div className="flex-1 overflow-y-auto px-8 py-2 space-y-4 divide-y divide-panel-border/20 cq-review-scroll">
+            <div className="flex-1 overflow-y-auto px-8 py-2 divide-y divide-panel-border/20 cq-review-scroll">
               {CQFO_STEPS.map((s, idx) => {
                 if (s.kind === "intro" || s.kind === "outro") return null;
                 const isFirst = CQFO_STEPS.findIndex((st) => st.kind !== "intro" && st.kind !== "outro") === idx;
                 return (
-                  <div key={s.id} className={isFirst ? "flex justify-between items-center gap-4 py-3" : "flex justify-between items-center gap-4 py-3.5 pt-4"}>
-                    <div className="space-y-1 flex-1">
+                  <div key={s.id} className={isFirst ? "flex justify-between items-start gap-4 py-4" : "flex justify-between items-start gap-4 py-4.5"}>
+                    <div className="space-y-1.5 flex-1">
                       <span className="text-[13px] font-medium text-muted/70 block leading-snug text-left">{s.title}</span>
-                      <div className="text-left mt-0.5">{renderAnswerSummary(s, answers)}</div>
+                      <div className="text-left mt-1">{renderAnswerSummary(s, answers)}</div>
                     </div>
                     <button
                       onClick={() => {
                         setIndex(idx);
                         setShowReviewModal(false);
                       }}
-                      className="text-xs text-muted hover:text-accent-strong font-medium transition-colors shrink-0 hover:underline"
+                      className="text-xs text-muted hover:text-accent-strong font-medium transition-colors shrink-0 hover:underline mt-0.5"
                     >
                       Edit
                     </button>
@@ -582,7 +583,7 @@ function renderAnswerSummary(s: Step, answers: Answers) {
     case "fields": {
       const record = value as Record<string, string>;
       return (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mt-0.5">
+        <div className="flex flex-wrap gap-x-8 gap-y-1.5 text-xs mt-1.5">
           {s.fields.map((f) => {
             const val = record[f.key];
             if (!val) return null;
@@ -629,17 +630,17 @@ function renderAnswerSummary(s: Step, answers: Answers) {
       const list = value as Record<string, string>[];
       if (!list.length) return <span className="text-muted/50 italic text-sm">None</span>;
       return (
-        <div className="space-y-3 mt-1">
+        <div className="space-y-4.5 mt-2.5">
           {list.map((item, i) => (
-            <div key={i} className="text-xs border-l-2 border-panel-border pl-3 space-y-1 text-left">
+            <div key={i} className="text-xs border-l-2 border-panel-border pl-4 space-y-1.5 text-left">
               <div className="text-[10px] text-muted font-semibold uppercase tracking-wider">{s.itemLabel} {i + 1}</div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
+              <div className="flex flex-wrap gap-x-8 gap-y-1.5">
                 {s.fields.map((f) => {
                   const val = item[f.key];
                   if (!val) return null;
                   return (
                     <span key={f.key} className="text-muted">
-                      {f.label}: <span className="text-foreground font-medium">{val}</span>
+                      {f.label}: <span className="text-foreground font-semibold">{val}</span>
                     </span>
                   );
                 })}
