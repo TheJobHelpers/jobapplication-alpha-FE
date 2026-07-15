@@ -94,7 +94,6 @@ export function ClientWorkspace({
   const questionnaire = effectiveQuestionnaire(client, questionnaireById);
 
   const [tab, setTab] = useState<Tab>("profile");
-  const [week, setWeek] = useState(29);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -235,7 +234,6 @@ export function ClientWorkspace({
               Assignee <span className="text-zinc-300">{client.ownerName}</span>
             </span>
             <QuotaMeter filled={filled} target={client.quotaApps} />
-            <WeekSelector week={week} onChange={setWeek} />
           </div>
         </div>
       </header>
@@ -1111,14 +1109,6 @@ function OnboardingBanner({
           </div>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onSend}
-            disabled={sent || !canManage}
-          >
-            {sent ? "Questionnaire sent" : "Send questionnaire"}
-          </Button>
           {canManage && (
             <Button variant="primary" size="sm" onClick={onActivate}>
               Move to Active
