@@ -263,7 +263,8 @@ function StepView({ step, answers, set, onNext, clientName }: {
           <h1 className="text-2xl font-semibold text-foreground">All done!</h1>
           <p className="text-muted max-w-md mx-auto">
             Thank you for your cooperation. The Job Helpers team has been notified, and
-            you can expect your first job applications to begin soon.
+            you can expect your first job applications to begin soon. We're thrilled to
+            partner with you on this journey to find your next great role!
           </p>
         </div>
       );
