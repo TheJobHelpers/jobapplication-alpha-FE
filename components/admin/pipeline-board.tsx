@@ -262,7 +262,7 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
               placeholder="Search title, client..."
               className="w-40 rounded-md border border-panel-border/60 bg-panel/35 pl-7 pr-2.5 py-1 text-xs text-zinc-200 outline-none focus:border-zinc-500 hover:border-zinc-400 placeholder:text-zinc-600 transition-all"
             />
-            <svg className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
