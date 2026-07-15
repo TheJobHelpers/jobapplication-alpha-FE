@@ -94,14 +94,17 @@ export function ClientsRoster() {
 
   return (
     <div className="mx-auto max-w-5xl px-8 py-8">
-      <header className="mb-4 flex items-center justify-between">
+      <header className="mb-6 flex items-start justify-between">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
             Clients
           </p>
-          <h1 className="mt-1 text-[16px] font-semibold">Roster</h1>
+          <h1 className="mt-1 text-[20px] font-semibold text-zinc-100">Roster</h1>
+          <p className="mt-1.5 text-xs text-muted leading-relaxed max-w-xl">
+            Monitor client pipelines, active application quotas, and onboarding progress. Click any row to open the client's workspace dashboard.
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mt-1.5">
           <span className="font-mono text-[12px] tabular-nums text-muted">
             {visible.length}/{clients.length} clients
           </span>
@@ -174,13 +177,13 @@ export function ClientsRoster() {
       </div>
 
       <Panel className="overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-4 border-b border-panel-border px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
+        <div className="grid grid-cols-[1fr_80px_70px_70px] sm:grid-cols-[1fr_120px_90px_70px_70px] md:grid-cols-[1fr_120px_90px_70px_70px_100px] items-center gap-4 border-b border-panel-border px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
           <span>Client</span>
           <span className="hidden sm:block">Owner</span>
           <span>Stage</span>
           <span className="text-right">Review</span>
           <span className="text-right">Quota</span>
-          <span className="hidden text-right md:block">Activity</span>
+          <span className="hidden md:block text-right">Activity</span>
         </div>
         <div className="divide-y divide-panel-border">
           {visible.length === 0 ? (
@@ -213,7 +216,7 @@ function RosterRow({
   return (
     <Link
       href={`/admin/clients/${c.id}`}
-      className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-4 px-4 py-3 transition-colors hover:bg-zinc-800/30"
+      className="grid grid-cols-[1fr_80px_70px_70px] sm:grid-cols-[1fr_120px_90px_70px_70px] md:grid-cols-[1fr_120px_90px_70px_70px_100px] items-center gap-4 px-4 py-3 transition-colors hover:bg-panel-border/30"
     >
       <div className="min-w-0">
         <p className="truncate text-[13px] font-medium text-zinc-100">{c.name}</p>
