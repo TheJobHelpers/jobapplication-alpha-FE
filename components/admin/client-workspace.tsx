@@ -25,6 +25,7 @@ import { Panel } from "@/components/ui/panel";
 import { StatusChip } from "@/components/ui/status-chip";
 import {
   api,
+  publicQuestionnaire,
   DOCUMENT_KIND_LABEL,
   DOCUMENT_KINDS,
   QUESTIONNAIRE_LABEL,
@@ -38,6 +39,7 @@ import {
   type QuestionnaireStatus,
   type RejectCategory,
 } from "@/lib/api";
+import { CQFO_STEPS, type Answers, type Step } from "@/lib/cqfo";
 import {
   canAddJobs,
   canAssign,
@@ -65,7 +67,7 @@ const HISTORY_STATUSES = new Set<JobStatus>(["rejected", "closed", "expired"]);
 const byScore = (a: ApplicationJob, b: ApplicationJob) =>
   (b.matchScore ?? 0) - (a.matchScore ?? 0);
 
-type Tab = "week" | "history" | "profile" | "documents" | "load";
+type Tab = "questionnaire" | "history" | "profile" | "documents" | "load";
 
 export function ClientWorkspace({
   client,
@@ -98,7 +100,7 @@ export function ClientWorkspace({
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab") as Tab;
-      if (tabParam && ["profile", "week", "history", "documents", "load"].includes(tabParam)) {
+      if (tabParam && ["profile", "questionnaire", "history", "documents", "load"].includes(tabParam)) {
         setTab(tabParam);
       }
     }
@@ -261,17 +263,7 @@ export function ClientWorkspace({
         <div className="min-w-0 flex-1 px-8 py-6">
           <Tabs tab={tab} onChange={setTab} historyCount={history.length} />
 
-          {tab === "week" && (
-            <ThisWeek
-              shortlist={shortlist}
-              assigned={assigned}
-              selected={selected}
-              newIds={newIds}
-              selectable={editable}
-              author={user.name}
-              onToggle={toggleSelect}
-            />
-          )}
+          {tab === "questionnaire" && <QuestionnaireTab client={client} questionnaire={questionnaire} />}
           {tab === "history" && <History jobs={history} clientName={client.name} />}
           {tab === "profile" && <Profile client={client} />}
           {tab === "documents" && (
@@ -282,31 +274,6 @@ export function ClientWorkspace({
           )}
         </div>
 
-        {/* Right panel: Add jobs (search is gone) — visible only when managing the active week */}
-        {tab === "week" && (
-          <aside className="w-full shrink-0 border-t border-panel-border lg:w-[340px] lg:border-l lg:border-t-0">
-            <div className="p-5 lg:sticky lg:top-0">
-              <h2 className="text-[13px] font-semibold">Add jobs</h2>
-              <p className="mt-1 text-[11.5px] text-muted">
-                Sourced outside the portal — add one or import a batch.
-              </p>
-              <div className="mt-4">
-                {editable && canAddJobs(user) ? (
-                  <AddJobsForm
-                    clientId={client.id}
-                    clientName={client.name}
-                    onAdd={handleAdd}
-                  />
-                ) : (
-                  <p className="text-[12px] text-zinc-500">
-                    You can view this client but not edit it. Only the assignee (
-                    {client.ownerName}) and managers can add jobs.
-                  </p>
-                )}
-              </div>
-            </div>
-          </aside>
-        )}
       </div>
 
       {/* Action bar */}
@@ -711,7 +678,266 @@ function DocumentRow({
   );
 }
 
-// ── Small pieces ──────────────────────────────────────────────────────
+// ── Questionnaire Tab ──────────────────────────────────────────────────
+// Dedicated full-page view for the onboarding questionnaire. Shows the
+// current status, links/controls, and once completed renders all the
+// client's answers mapped against the CQFO question set.
+function QuestionnaireTab({
+  client,
+  questionnaire,
+}: {
+  client: Client;
+  questionnaire: ReturnType<typeof effectiveQuestionnaire>;
+}) {
+  const { user } = useCurrentUser();
+  const {
+    questionnaireById,
+    sendQuestionnaire,
+    setQuestionnaireStatus,
+    upsertDocument,
+    logAudit,
+  } = useStore();
+
+  const q = effectiveQuestionnaire(client, questionnaireById) ?? questionnaire;
+  const canManage = canEditClient(user, client.ownerId);
+
+  // Fetch answers from the public API if the questionnaire was submitted online
+  const [answers, setAnswers] = useState<Answers>({});
+  const [loadingAnswers, setLoadingAnswers] = useState(false);
+
+  useEffect(() => {
+    const token = q.token;
+    if (!token || q.status === "not_sent") return;
+    setLoadingAnswers(true);
+    publicQuestionnaire
+      .get(token)
+      .then((r) => {
+        setAnswers(r.answers);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingAnswers(false));
+  }, [q.token, q.status]);
+
+  function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    upsertDocument(client.id, "cqfo", file.name, user.name);
+    setQuestionnaireStatus(client.id, "completed");
+    logAudit(user.name, `Uploaded questionnaire PDF (${file.name})`, client.name);
+    e.target.value = "";
+  }
+
+  const questionSteps = CQFO_STEPS.filter(
+    (s) => s.kind !== "intro" && s.kind !== "outro"
+  );
+
+  // Status color and icon
+  const statusMeta: Record<string, { color: string; icon: string; label: string }> = {
+    not_sent: { color: "text-zinc-400", icon: "○", label: "Not sent" },
+    sent: { color: "text-status-assigned", icon: "→", label: "Sent — awaiting response" },
+    in_progress: { color: "text-status-interview", icon: "◔", label: "In progress" },
+    completed: { color: "text-status-offer", icon: "✓", label: "Completed" },
+  };
+  const sm = statusMeta[q.status] ?? statusMeta.not_sent;
+
+  return (
+    <div className="mt-6 space-y-5">
+      {/* Status + Actions header card */}
+      <Panel className="p-5">
+        <div className="flex flex-wrap items-start gap-6">
+          {/* Status block */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted mb-2">
+              Questionnaire status
+            </p>
+            <div className={`flex items-center gap-2 text-[13px] font-semibold ${sm.color}`}>
+              <span className="text-base leading-none">{sm.icon}</span>
+              {sm.label}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11.5px] text-muted">
+              {q.sentAt && <span>Sent <span className="text-zinc-300">{q.sentAt}</span></span>}
+              {q.completedAt && <span>Completed <span className="text-status-offer">{q.completedAt}</span></span>}
+            </div>
+          </div>
+
+          {/* Link block — only when a token exists */}
+          {q.token && q.status !== "not_sent" && (
+            <div className="flex-1 min-w-[220px]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted mb-2">
+                Questionnaire link
+              </p>
+              <div className="flex items-center gap-2 rounded-md border border-panel-border/60 bg-panel/30 px-3 py-1.5">
+                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--accent)]">
+                  {`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/q/${q.token}`}
+                </span>
+                <button
+                  onClick={() => navigator.clipboard?.writeText(`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== "undefined" ? window.location.origin : "")}/q/${q.token}`)}
+                  className="shrink-0 rounded border border-zinc-700 px-2 py-0.5 text-[10.5px] font-semibold text-zinc-300 hover:bg-zinc-800/60 transition-colors"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Actions row */}
+        {canManage && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-panel-border/20 pt-4">
+            {q.status === "not_sent" && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => { sendQuestionnaire(client.id); logAudit(user.name, "Sent questionnaire", client.name); }}
+              >
+                Send questionnaire
+              </Button>
+            )}
+            {q.status !== "not_sent" && q.status !== "completed" && (
+              <>
+                <Button variant="primary" size="sm" onClick={() => setQuestionnaireStatus(client.id, "completed")}>
+                  Mark completed
+                </Button>
+                {q.status === "sent" && (
+                  <Button variant="secondary" size="sm" onClick={() => setQuestionnaireStatus(client.id, "in_progress")}>
+                    Mark in progress
+                  </Button>
+                )}
+                <Button variant="secondary" size="sm" onClick={() => { sendQuestionnaire(client.id); }}>
+                  Resend
+                </Button>
+              </>
+            )}
+            {q.status === "completed" && (
+              <Button variant="secondary" size="sm" onClick={() => setQuestionnaireStatus(client.id, "sent")}>
+                Reopen
+              </Button>
+            )}
+            <label className="flex items-center gap-1.5 cursor-pointer rounded-md border border-panel-border px-3 py-1.5 text-[11.5px] font-semibold text-zinc-300 hover:bg-zinc-800/40 transition-colors">
+              <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              {q.status === "completed" ? "Replace PDF" : "Upload answers PDF"}
+              <input type="file" accept=".pdf" onChange={handlePdfUpload} className="hidden" />
+            </label>
+          </div>
+        )}
+      </Panel>
+
+      {/* Answers panel — shown once completed or in_progress */}
+      {(q.status === "completed" || q.status === "in_progress") && (
+        <Panel className="overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-panel-border/40">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
+              Client responses
+            </p>
+            <span className="text-[11px] text-zinc-500">
+              {loadingAnswers ? "Loading…" : `${Object.keys(answers).length} fields captured`}
+            </span>
+          </div>
+
+          {loadingAnswers ? (
+            <div className="flex items-center justify-center py-12 text-[12px] text-zinc-500">
+              Loading answers…
+            </div>
+          ) : Object.keys(answers).length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+              <p className="text-[12.5px] text-zinc-400">
+                No answers recorded yet via the online form.
+              </p>
+              <p className="text-[11.5px] text-zinc-600">
+                Answers appear here after the client submits the questionnaire online, or you can upload a filled PDF above.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-panel-border/20">
+              {questionSteps.map((step) => {
+                const value = answers[step.id];
+                if (value === undefined || value === null) return null;
+                return (
+                  <div key={step.id} className="grid grid-cols-[1fr_1.5fr] gap-4 px-5 py-3">
+                    <div className="text-[11.5px] text-zinc-400 leading-snug pt-0.5">
+                      {(step as { title?: string }).title ?? step.id}
+                    </div>
+                    <div className="text-[12.5px] text-zinc-200">
+                      <AnswerValue step={step} value={value} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+// Render a single answer value inline
+function AnswerValue({ step, value }: { step: Step; value: unknown }) {
+  if (step.kind === "choice" || step.kind === "text") {
+    return <span>{String(value)}</span>;
+  }
+  if (step.kind === "yesno") {
+    const obj = value as { answer?: string; detail?: string };
+    return (
+      <div>
+        <span className="capitalize font-semibold">{obj.answer ?? "—"}</span>
+        {obj.detail && (
+          <p className="mt-1 text-[11px] text-zinc-500 italic border-l-2 border-panel-border pl-2">
+            {obj.detail}
+          </p>
+        )}
+      </div>
+    );
+  }
+  if (step.kind === "fields") {
+    const record = value as Record<string, string>;
+    return (
+      <div className="flex flex-wrap gap-x-6 gap-y-1">
+        {step.fields.map((f) =>
+          record[f.key] ? (
+            <div key={f.key}>
+              <span className="text-[10px] text-muted uppercase tracking-wide block">{f.label}</span>
+              <span className="text-[12px]">{record[f.key]}</span>
+            </div>
+          ) : null
+        )}
+      </div>
+    );
+  }
+  if (step.kind === "range") {
+    const obj = value as { from?: string; to?: string; note?: string };
+    return (
+      <div>
+        <span>{obj.from ?? "—"} – {obj.to ?? "—"} {step.unit}/yr</span>
+        {obj.note && <p className="mt-1 text-[11px] text-zinc-500 italic">{obj.note}</p>}
+      </div>
+    );
+  }
+  if (step.kind === "repeat") {
+    const list = value as Record<string, string>[];
+    return (
+      <div className="space-y-3">
+        {list.map((item, i) => (
+          <div key={i} className="flex flex-wrap gap-x-6 gap-y-1">
+            {step.fields.map((f) =>
+              item[f.key] ? (
+                <div key={f.key}>
+                  <span className="text-[10px] text-muted uppercase tracking-wide block">{f.label}</span>
+                  <span className="text-[12px]">{item[f.key]}</span>
+                </div>
+              ) : null
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <span>{JSON.stringify(value)}</span>;
+}
+
+
 function Tabs({
   tab,
   onChange,
@@ -723,9 +949,9 @@ function Tabs({
 }) {
   const items: { id: Tab; label: string }[] = [
     { id: "profile", label: "Profile" },
-    { id: "week", label: "This Week" },
-    { id: "history", label: `History${historyCount ? ` (${historyCount})` : ""}` },
     { id: "documents", label: "Documents" },
+    { id: "questionnaire", label: "Questionnaire" },
+    { id: "history", label: `History${historyCount ? ` (${historyCount})` : ""}` },
     { id: "load", label: "Load Jobs" },
   ];
   return (
