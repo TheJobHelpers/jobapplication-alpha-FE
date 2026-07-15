@@ -586,13 +586,11 @@ function HistoryList({ jobs }: { jobs: ApplicationJob[] }) {
 // ── Profile ───────────────────────────────────────────────────────────
 function Profile({ client }: { client: Client }) {
   return (
-    <div className="mt-6 space-y-4">
-      <Panel className="p-5">
-        <QuestionnairePanel client={client} />
-      </Panel>
-      <div className="grid items-start gap-4 sm:grid-cols-2">
-        <Panel className="p-5">
-          <SectionLabel>Account</SectionLabel>
+    <div className="mt-6 grid items-start gap-4 lg:grid-cols-3 md:grid-cols-2 grid-cols-1">
+      {/* Account details */}
+      <Panel className="p-5 h-full">
+        <SectionLabel>Account</SectionLabel>
+        <div className="mt-2 divide-y divide-panel-border/20">
           <Field label="Assignee" value={client.ownerName} />
           <Field label="Tier" value={client.tier} />
           <Field label="Stage" value={client.stage} />
@@ -601,11 +599,18 @@ function Profile({ client }: { client: Client }) {
             label="Client approval"
             value={client.approvalRequired ? "Required" : "Off"}
           />
-        </Panel>
-        <Panel className="p-5">
-          <SourcingPreferences client={client} />
-        </Panel>
-      </div>
+        </div>
+      </Panel>
+
+      {/* Sourcing preferences */}
+      <Panel className="p-5 h-full">
+        <SourcingPreferences client={client} />
+      </Panel>
+
+      {/* Onboarding Questionnaire */}
+      <Panel className="p-5 h-full lg:col-span-1 md:col-span-2 col-span-1">
+        <QuestionnairePanel client={client} />
+      </Panel>
     </div>
   );
 }
@@ -948,7 +953,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="mt-2.5 flex items-baseline justify-between gap-4">
+    <div className="py-2 flex items-baseline justify-between gap-4 border-b border-panel-border/20 last:border-b-0">
       <span className="text-[11.5px] text-muted">{label}</span>
       <span className="text-right text-[12.5px] capitalize text-zinc-200">
         {value}

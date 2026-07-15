@@ -71,7 +71,7 @@ export function SourcingPreferences({ client }: { client: Client }) {
           token={questionnaireById[client.id]?.token ?? client.questionnaire?.token}
         />
       ) : (
-        <div className="mt-3 space-y-2.5">
+        <div className="mt-2 divide-y divide-panel-border/20">
           <Row label="Target titles">
             <Chips values={prefs.titles} empty="Not set" />
           </Row>
@@ -221,7 +221,7 @@ function EditForm({
 // ── pieces ────────────────────────────────────────────────────────────
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-4">
+    <div className="py-2 flex items-baseline justify-between gap-4 border-b border-panel-border/20 last:border-b-0">
       <span className="text-[11.5px] text-muted">{label}</span>
       <div className="text-right">{children}</div>
     </div>
