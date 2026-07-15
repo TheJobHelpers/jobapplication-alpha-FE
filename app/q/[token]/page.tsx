@@ -218,7 +218,7 @@ export default function QuestionnairePage({
                 return (
                   <div key={s.id} className={isFirst ? "flex justify-between items-start gap-4" : "flex justify-between items-start gap-4 pt-4"}>
                     <div className="space-y-1 flex-1">
-                      <span className="text-[13px] font-medium text-muted/80 block leading-snug text-left">{s.title}</span>
+                      <span className="text-sm font-medium text-muted block leading-snug text-left">{s.title}</span>
                       <div className="text-left mt-0.5">{renderAnswerSummary(s, answers)}</div>
                     </div>
                     <button
@@ -533,7 +533,7 @@ function renderAnswerSummary(s: Step, answers: Answers) {
         <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs mt-1.5">
           {s.fields.map((f) => (
             <div key={f.key} className="bg-background/40 border border-panel-border/60 rounded-lg px-3 py-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-muted/80 block">{f.label}</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted block">{f.label}</span>
               <span className="text-sm font-semibold text-foreground block mt-0.5">{record[f.key] || "—"}</span>
             </div>
           ))}
@@ -580,7 +580,7 @@ function renderAnswerSummary(s: Step, answers: Answers) {
               <div className="col-span-2 text-[10px] text-muted font-bold tracking-wider uppercase">{s.itemLabel} {i + 1}</div>
               {s.fields.map((f) => (
                 <div key={f.key}>
-                  <span className="text-[10px] uppercase tracking-wider text-muted/70 block">{f.label}</span>
+                  <span className="text-[10px] uppercase tracking-wider text-muted block">{f.label}</span>
                   <span className="text-sm font-semibold text-foreground block mt-0.5">{item[f.key] || "—"}</span>
                 </div>
               ))}
