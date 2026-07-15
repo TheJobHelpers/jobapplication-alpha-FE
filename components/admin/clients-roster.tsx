@@ -143,10 +143,10 @@ export function ClientsRoster() {
         <select
           value={owner}
           onChange={(e) => setOwner(e.target.value)}
-          aria-label="Filter by owner"
+          aria-label="Filter by assignee"
           className="h-8 rounded-md border border-panel-border bg-panel px-2 text-[12px] text-zinc-200 outline-none focus:border-zinc-600"
         >
-          <option value="all">All owners</option>
+          <option value="all">All assignees</option>
           {owners.map(([id, name]) => (
             <option key={id} value={id}>
               {name}
@@ -179,7 +179,7 @@ export function ClientsRoster() {
       <Panel className="overflow-hidden">
         <div className="grid grid-cols-[1fr_80px_70px_70px] sm:grid-cols-[1fr_120px_90px_70px_70px] md:grid-cols-[1fr_120px_90px_70px_70px_100px] items-center gap-4 border-b border-panel-border px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
           <span>Client</span>
-          <span className="hidden sm:block">Owner</span>
+          <span className="hidden sm:block">Assignee</span>
           <span>Stage</span>
           <span className="text-right">Review</span>
           <span className="text-right">Quota</span>
