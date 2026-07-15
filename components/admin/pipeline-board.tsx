@@ -170,16 +170,15 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
 
   return (
     <div className="px-6 py-6">
-      <header className="mb-6">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
-          Pipeline
-        </p>
-        <h1 className="mt-1 text-[20px] font-semibold text-zinc-100">Applications</h1>
-        <p className="mt-1 text-xs text-muted leading-relaxed max-w-2xl">
-          Track and manage candidates across sourcing phases. Toggle between <strong>Kanban Board</strong> and <strong>List</strong> layouts, apply filters to isolate clients or assignees, or group swimlanes to inspect individual workloads.
-        </p>
-        <div className="mt-3 text-[11.5px] text-zinc-400 font-medium bg-panel/30 border border-panel-border/40 rounded px-2.5 py-1 inline-block">
-          Showing {filtered.length} of {jobs.length} total active application{jobs.length === 1 ? "" : "s"}
+      <header className="mb-5 flex flex-wrap items-baseline justify-between gap-2 border-b border-panel-border/30 pb-3.5">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
+            Pipeline
+          </p>
+          <h1 className="mt-0.5 text-[18px] font-semibold text-zinc-100">Applications</h1>
+        </div>
+        <div className="text-[11.5px] font-medium text-zinc-400">
+          Showing {filtered.length} of {jobs.length} applications
         </div>
       </header>
 
