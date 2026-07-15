@@ -91,7 +91,6 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
   const [client, setClient] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [staleOnly, setStaleOnly] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [view, setView] = useState<"board" | "list">("board");
 
@@ -137,7 +136,6 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
       const matchAssignee = j.assignedToName?.toLowerCase().includes(q) ?? false;
       if (!matchTitle && !matchCompany && !matchClient && !matchAssignee) return false;
     }
-    if (staleOnly && !(j.updatedAt <= STALE_BEFORE)) return false;
     return true;
   });
 
@@ -291,25 +289,12 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
             ))}
           </Select>
 
-          <button
-            onClick={() => setStaleOnly((v) => !v)}
-            className={
-              "rounded-md border px-2.5 py-1 text-xs font-semibold tracking-wide transition-all " +
-              (staleOnly
-                ? "border-status-interview/60 bg-status-interview/10 text-status-interview"
-                : "border-panel-border/60 text-muted hover:text-zinc-200 hover:border-zinc-400")
-            }
-          >
-            Stale &gt; 5 days
-          </button>
-
-          {(client !== "all" || assignee !== "all" || statusFilter !== "all" || staleOnly || searchQuery) && (
+          {(client !== "all" || assignee !== "all" || statusFilter !== "all" || searchQuery) && (
             <button
               onClick={() => {
                 setClient("all");
                 setAssignee("all");
                 setStatusFilter("all");
-                setStaleOnly(false);
                 setSearchQuery("");
               }}
               className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-300 transition-colors ml-1"
