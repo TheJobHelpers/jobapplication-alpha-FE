@@ -373,7 +373,7 @@ function StepView({ step, answers, set, onNext, clientName }: {
               Thank you for your cooperation. The Job Helpers team has been notified, and
               you can expect your first job applications to begin soon.
             </span>
-            <span className="block mt-3 text-blue-600 font-medium">
+            <span className="block mt-3 text-accent-strong font-medium">
               We're thrilled to partner with you on this journey to find your next great role!
             </span>
           </p>
