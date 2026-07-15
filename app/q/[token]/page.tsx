@@ -178,7 +178,9 @@ export default function QuestionnairePage({
               <div className="flex items-center justify-center gap-3">
                 {index > 0 && (
                   <button onClick={back}
-                    className="rounded-lg border border-panel-border bg-panel px-5 py-2.5 text-sm font-medium text-muted transition-colors hover:border-muted hover:text-foreground hover:bg-panel-border/30">
+                    className={step.kind === "outro"
+                      ? "text-xs text-muted hover:text-foreground hover:underline transition-colors mt-4"
+                      : "rounded-lg border border-panel-border bg-panel px-5 py-2.5 text-sm font-medium text-muted transition-colors hover:border-muted hover:text-foreground hover:bg-panel-border/30"}>
                     ← Back
                   </button>
                 )}
