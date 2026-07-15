@@ -200,7 +200,7 @@ export default function QuestionnairePage({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-[fadein_.2s_ease]">
           <div className="w-full max-w-2xl bg-panel border border-panel-border rounded-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-panel-border bg-background/50">
+            <div className="flex items-center justify-between px-8 py-5">
               <h3 className="text-base font-semibold text-foreground">Review your answers</h3>
               <button
                 onClick={() => setShowReviewModal(false)}
@@ -211,14 +211,14 @@ export default function QuestionnairePage({
             </div>
 
             {/* Modal Content */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 divide-y divide-panel-border/30 cq-review-scroll">
+            <div className="flex-1 overflow-y-auto px-8 py-2 space-y-4 divide-y divide-panel-border/20 cq-review-scroll">
               {CQFO_STEPS.map((s, idx) => {
                 if (s.kind === "intro" || s.kind === "outro") return null;
                 const isFirst = CQFO_STEPS.findIndex((st) => st.kind !== "intro" && st.kind !== "outro") === idx;
                 return (
-                  <div key={s.id} className={isFirst ? "flex justify-between items-start gap-4" : "flex justify-between items-start gap-4 pt-4"}>
+                  <div key={s.id} className={isFirst ? "flex justify-between items-center gap-4 py-3" : "flex justify-between items-center gap-4 py-3.5 pt-4"}>
                     <div className="space-y-1 flex-1">
-                      <span className="text-sm font-medium text-muted block leading-snug text-left">{s.title}</span>
+                      <span className="text-[13px] font-medium text-muted/70 block leading-snug text-left">{s.title}</span>
                       <div className="text-left mt-0.5">{renderAnswerSummary(s, answers)}</div>
                     </div>
                     <button
@@ -226,7 +226,7 @@ export default function QuestionnairePage({
                         setIndex(idx);
                         setShowReviewModal(false);
                       }}
-                      className="text-xs text-muted hover:text-accent-strong font-medium transition-colors shrink-0 px-2.5 py-1 rounded bg-background hover:bg-panel-border/30 border border-panel-border mt-0.5"
+                      className="text-xs text-muted hover:text-accent-strong font-medium transition-colors shrink-0 hover:underline"
                     >
                       Edit
                     </button>
@@ -236,10 +236,10 @@ export default function QuestionnairePage({
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-panel-border flex justify-end bg-background/50">
+            <div className="px-8 py-5 flex justify-end">
               <button
                 onClick={() => setShowReviewModal(false)}
-                className="rounded-lg bg-accent-strong px-6 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                className="rounded-lg bg-accent-strong px-6 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 shadow-sm"
               >
                 Done
               </button>
@@ -520,37 +520,40 @@ function Splash({ children }: { children: React.ReactNode }) {
 
 function renderAnswerSummary(s: Step, answers: Answers) {
   const value = answers[s.id];
-  if (value === undefined || value === null) return <span className="text-muted italic text-sm">Not answered</span>;
+  if (value === undefined || value === null) return <span className="text-muted/50 italic text-sm">Not answered</span>;
 
   switch (s.kind) {
     case "choice":
     case "text":
-      return <span className="text-sm font-semibold text-foreground">{String(value) || <span className="text-muted/60 italic font-normal">Empty</span>}</span>;
+      return <span className="text-sm font-medium text-foreground">{String(value) || <span className="text-muted/50 italic">Empty</span>}</span>;
 
     case "fields": {
       const record = value as Record<string, string>;
       return (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs mt-1.5">
-          {s.fields.map((f) => (
-            <div key={f.key} className="bg-background/40 border border-panel-border/60 rounded-lg px-3 py-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-muted block">{f.label}</span>
-              <span className="text-sm font-semibold text-foreground block mt-0.5">{record[f.key] || "—"}</span>
-            </div>
-          ))}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mt-0.5">
+          {s.fields.map((f) => {
+            const val = record[f.key];
+            if (!val) return null;
+            return (
+              <span key={f.key} className="text-muted">
+                {f.label}: <span className="text-foreground font-semibold">{val}</span>
+              </span>
+            );
+          })}
         </div>
       );
     }
 
     case "yesno": {
       const obj = value as { answer?: string; detail?: string };
-      if (!obj.answer) return <span className="text-muted italic text-sm">Not answered</span>;
+      if (!obj.answer) return <span className="text-muted/50 italic text-sm">Not answered</span>;
       return (
-        <div className="text-sm text-foreground font-semibold">
+        <div className="text-sm text-foreground font-medium">
           <span className="capitalize">{obj.answer}</span>
           {obj.answer === "yes" && obj.detail && (
-            <div className="text-xs text-muted font-normal mt-1 border-l-2 border-accent pl-2 italic">
+            <span className="text-muted font-normal text-xs ml-2 border-l border-panel-border pl-2 italic">
               {obj.detail}
-            </div>
+            </span>
           )}
         </div>
       );
@@ -559,12 +562,12 @@ function renderAnswerSummary(s: Step, answers: Answers) {
     case "range": {
       const obj = value as { from?: string; to?: string; note?: string };
       return (
-        <div className="text-sm text-foreground font-semibold">
+        <div className="text-sm text-foreground font-medium">
           {obj.from || "—"} to {obj.to || "—"} {s.unit}/yr
           {obj.note && (
-            <div className="text-xs text-muted font-normal mt-1 border-l-2 border-accent pl-2 italic text-left">
+            <span className="text-muted font-normal text-xs ml-2 border-l border-panel-border pl-2 italic text-left">
               Note: {obj.note}
-            </div>
+            </span>
           )}
         </div>
       );
@@ -572,18 +575,23 @@ function renderAnswerSummary(s: Step, answers: Answers) {
 
     case "repeat": {
       const list = value as Record<string, string>[];
-      if (!list.length) return <span className="text-muted italic text-sm">None</span>;
+      if (!list.length) return <span className="text-muted/50 italic text-sm">None</span>;
       return (
-        <div className="space-y-2 mt-1.5">
+        <div className="space-y-3 mt-1">
           {list.map((item, i) => (
-            <div key={i} className="text-xs border border-panel-border bg-background/50 rounded-lg p-3 grid grid-cols-2 gap-x-4 gap-y-1.5">
-              <div className="col-span-2 text-[10px] text-muted font-bold tracking-wider uppercase">{s.itemLabel} {i + 1}</div>
-              {s.fields.map((f) => (
-                <div key={f.key}>
-                  <span className="text-[10px] uppercase tracking-wider text-muted block">{f.label}</span>
-                  <span className="text-sm font-semibold text-foreground block mt-0.5">{item[f.key] || "—"}</span>
-                </div>
-              ))}
+            <div key={i} className="text-xs border-l-2 border-panel-border pl-3 space-y-1 text-left">
+              <div className="text-[10px] text-muted font-semibold uppercase tracking-wider">{s.itemLabel} {i + 1}</div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {s.fields.map((f) => {
+                  const val = item[f.key];
+                  if (!val) return null;
+                  return (
+                    <span key={f.key} className="text-muted">
+                      {f.label}: <span className="text-foreground font-medium">{val}</span>
+                    </span>
+                  );
+                })}
+              </div>
             </div>
           ))}
         </div>
