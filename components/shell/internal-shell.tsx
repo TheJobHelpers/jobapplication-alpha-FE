@@ -117,18 +117,22 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
-        </nav>
 
-        <div className="space-y-2 px-2 py-3">
           <button
             onClick={() => setQuickAdd(true)}
-            className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-[12px] text-muted hover:bg-zinc-800/40 hover:text-zinc-200"
+            className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-[13px] text-muted hover:bg-zinc-800/40 hover:text-zinc-200 transition-colors"
           >
-            <span className="flex items-center gap-2">
-              <IconPlus /> Add job
+            <span className="flex items-center gap-2.5">
+              <span className="text-zinc-500">
+                <IconPlus />
+              </span>
+              Add job
             </span>
             <Kbd>S</Kbd>
           </button>
+        </nav>
+
+        <div className="space-y-2 px-2 py-3">
           <button
             onClick={() => setPalette(true)}
             className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-[12px] text-muted hover:bg-zinc-800/40 hover:text-zinc-200"
