@@ -578,19 +578,20 @@ function renderAnswerSummary(s: Step, answers: Answers) {
   switch (s.kind) {
     case "choice":
     case "text":
-      return <span className="text-sm font-medium text-foreground">{String(value) || <span className="text-muted/50 italic">Empty</span>}</span>;
+      return <span className="text-sm font-semibold text-foreground">{String(value) || <span className="text-muted/50 italic">Empty</span>}</span>;
 
     case "fields": {
       const record = value as Record<string, string>;
       return (
-        <div className="flex flex-wrap gap-x-8 gap-y-1.5 text-xs mt-1.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mt-2.5">
           {s.fields.map((f) => {
             const val = record[f.key];
             if (!val) return null;
             return (
-              <span key={f.key} className="text-muted">
-                {f.label}: <span className="text-foreground font-semibold">{val}</span>
-              </span>
+              <div key={f.key}>
+                <span className="text-[10px] text-muted uppercase tracking-wider block">{f.label}</span>
+                <span className="text-sm font-semibold text-foreground block mt-0.5">{val}</span>
+              </div>
             );
           })}
         </div>
@@ -601,12 +602,12 @@ function renderAnswerSummary(s: Step, answers: Answers) {
       const obj = value as { answer?: string; detail?: string };
       if (!obj.answer) return <span className="text-muted/50 italic text-sm">Not answered</span>;
       return (
-        <div className="text-sm text-foreground font-medium">
+        <div className="text-sm text-foreground font-semibold">
           <span className="capitalize">{obj.answer}</span>
           {obj.answer === "yes" && obj.detail && (
-            <span className="text-muted font-normal text-xs ml-2 border-l border-panel-border pl-2 italic">
+            <div className="text-xs text-muted font-normal mt-1.5 border-l-2 border-panel-border pl-2.5 italic">
               {obj.detail}
-            </span>
+            </div>
           )}
         </div>
       );
@@ -615,12 +616,12 @@ function renderAnswerSummary(s: Step, answers: Answers) {
     case "range": {
       const obj = value as { from?: string; to?: string; note?: string };
       return (
-        <div className="text-sm text-foreground font-medium">
+        <div className="text-sm text-foreground font-semibold">
           {obj.from || "—"} to {obj.to || "—"} {s.unit}/yr
           {obj.note && (
-            <span className="text-muted font-normal text-xs ml-2 border-l border-panel-border pl-2 italic text-left">
+            <div className="text-xs text-muted font-normal mt-1.5 border-l-2 border-panel-border pl-2.5 italic text-left">
               Note: {obj.note}
-            </span>
+            </div>
           )}
         </div>
       );
@@ -630,18 +631,19 @@ function renderAnswerSummary(s: Step, answers: Answers) {
       const list = value as Record<string, string>[];
       if (!list.length) return <span className="text-muted/50 italic text-sm">None</span>;
       return (
-        <div className="space-y-4.5 mt-2.5">
+        <div className="space-y-6 mt-3">
           {list.map((item, i) => (
-            <div key={i} className="text-xs border-l-2 border-panel-border pl-4 space-y-1.5 text-left">
-              <div className="text-[10px] text-muted font-semibold uppercase tracking-wider">{s.itemLabel} {i + 1}</div>
-              <div className="flex flex-wrap gap-x-8 gap-y-1.5">
+            <div key={i} className="text-xs border-l-2 border-panel-border pl-4 space-y-2 text-left">
+              <div className="text-[10px] text-accent-strong font-bold tracking-wider uppercase">{s.itemLabel} {i + 1}</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
                 {s.fields.map((f) => {
                   const val = item[f.key];
                   if (!val) return null;
                   return (
-                    <span key={f.key} className="text-muted">
-                      {f.label}: <span className="text-foreground font-semibold">{val}</span>
-                    </span>
+                    <div key={f.key}>
+                      <span className="text-[10px] text-muted uppercase tracking-wider block">{f.label}</span>
+                      <span className="text-sm font-semibold text-foreground block mt-0.5">{val}</span>
+                    </div>
                   );
                 })}
               </div>
