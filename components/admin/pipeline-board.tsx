@@ -37,12 +37,8 @@ const COLUMNS: Column[] = [
   { key: "closed", label: "Closed", color: "var(--status-expired)", statuses: ["closed", "rejected", "expired", "blocked"], primary: "closed" },
 ];
 
-const SIMPLE_COLUMNS: Column[] = [
-  { key: "sourced", label: "Sourced", color: "var(--status-sourced)", statuses: ["sourced"], primary: "sourced" },
-  { key: "setup", label: "Review & Setup", color: "var(--status-review)", statuses: ["client_review", "approved", "in_progress", "assigned"], primary: "client_review" },
-  { key: "active", label: "Active Pipeline", color: "var(--status-applied)", statuses: ["applying", "applied", "interviewing"], primary: "applied" },
-  { key: "outcome", label: "Outcome", color: "var(--status-offer)", statuses: ["offer", "closed", "rejected", "expired", "blocked"], primary: "offer" },
-];
+const GRID = { gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(200px, 1fr))` };
+const MIN_WIDTH = COLUMNS.length * 210;
 
 type Group = "none" | "client" | "member";
 
@@ -97,11 +93,6 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [dragId, setDragId] = useState<string | null>(null);
   const [view, setView] = useState<"board" | "list">("board");
-  const [simpleMode, setSimpleMode] = useState(false);
-
-  const activeColumns = simpleMode ? SIMPLE_COLUMNS : COLUMNS;
-  const GRID = { gridTemplateColumns: `repeat(${activeColumns.length}, minmax(200px, 1fr))` };
-  const MIN_WIDTH = activeColumns.length * 210;
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -206,18 +197,6 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
             <Seg active={view === "board"} onClick={() => setView("board")}>Board</Seg>
             <Seg active={view === "list"} onClick={() => setView("list")}>List</Seg>
           </Segment>
-
-          {view === "board" && (
-            <label className="flex items-center gap-1.5 cursor-pointer text-[12px] font-semibold text-zinc-400 select-none hover:text-zinc-200 transition-colors ml-1">
-              <input
-                type="checkbox"
-                checked={simpleMode}
-                onChange={(e) => setSimpleMode(e.target.checked)}
-                className="h-3.5 w-3.5 accent-[var(--accent)] cursor-pointer rounded border-panel-border bg-panel focus:ring-0 focus:ring-offset-0"
-              />
-              Simple view
-            </label>
-          )}
 
           {view === "board" && (
             <Segment label="Group">
@@ -333,7 +312,7 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
           <div style={{ minWidth: MIN_WIDTH }}>
             {/* Column headers */}
             <div className="grid gap-3" style={GRID}>
-              {activeColumns.map((col) => {
+              {COLUMNS.map((col) => {
                 const count = filtered.filter((j) => col.statuses.includes(j.status)).length;
                 const invalid = dragJob && !canTransition(user, dragJob.status, col.primary);
                 return (
@@ -392,7 +371,7 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
                   
                   {!collapsedLanes.has(lane.key) && (
                     <div className={`grid items-start gap-3 ${lane.label ? "mt-3.5" : ""}`} style={GRID}>
-                      {activeColumns.map((col) => {
+                      {COLUMNS.map((col) => {
                         const cards = lane.jobs.filter((j) => col.statuses.includes(j.status));
                         const invalid = dragJob && !canTransition(user, dragJob.status, col.primary);
                         return (
