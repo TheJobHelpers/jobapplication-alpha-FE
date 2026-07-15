@@ -9,7 +9,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, Fragment } from "react";
 import { CommandPalette } from "@/components/shell/command-palette";
-import { QuickAdd } from "@/components/shell/quick-add";
 import { useCurrentUser, useStaffSession } from "@/components/shell/role-context";
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/cn";
@@ -25,6 +24,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { href: "/admin", label: "Today", icon: <IconToday /> },
   { href: "/admin/clients", label: "Clients", icon: <IconClients /> },
+  { href: "/admin/add-job", label: "Add job", icon: <IconPlus /> },
   { href: "/admin/pipeline", label: "Pipeline", icon: <IconPipeline /> },
   { href: "/admin/team", label: "Team", icon: <IconTeam />, show: canSeeTeam },
   { href: "/admin/settings", label: "Admin", icon: <IconAdmin />, show: canSeeAdmin },
@@ -50,7 +50,6 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
   const { user } = useCurrentUser();
   const { signOut } = useStaffSession();
   const [palette, setPalette] = useState(false);
-  const [quickAdd, setQuickAdd] = useState(false);
 
   // The Ctrl/Cmd+K handler is cross-platform; only the hint label differs.
   // Read the platform via useSyncExternalStore so the server snapshot is a stable
@@ -74,20 +73,18 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
       }
       if (e.key === "Escape") {
         setPalette(false);
-        setQuickAdd(false);
         return;
       }
       if (!typing && !e.metaKey && !e.ctrlKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        setQuickAdd((v) => !v);
+        router.push("/admin/add-job");
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [router]);
 
   const nav = NAV.filter((item) => !item.show || item.show(user));
-  const clientsIndex = nav.findIndex((item) => item.label === "Clients");
 
   return (
     <div className="flex min-h-screen">
@@ -97,9 +94,10 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-0.5 px-2 py-2">
-          {nav.map((item, idx) => {
+          {nav.map((item) => {
             const active = isActive(pathname, item.href);
-            const linkEl = (
+            const isAddJob = item.label === "Add job";
+            return (
               <Link
                 key={item.href}
                 href={item.href}
@@ -114,31 +112,10 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
                 <span className={active ? "text-[var(--accent)]" : "text-zinc-500"}>
                   {item.icon}
                 </span>
-                {item.label}
+                <span className="flex-1 truncate">{item.label}</span>
+                {isAddJob && <Kbd>S</Kbd>}
               </Link>
             );
-
-            if (idx === clientsIndex) {
-              return (
-                <Fragment key={item.href}>
-                  {linkEl}
-                  <button
-                    onClick={() => setQuickAdd(true)}
-                    className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-[13px] text-muted hover:bg-zinc-800/40 hover:text-zinc-200 transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <span className="text-zinc-500">
-                        <IconPlus />
-                      </span>
-                      Add job
-                    </span>
-                    <Kbd>S</Kbd>
-                  </button>
-                </Fragment>
-              );
-            }
-
-            return linkEl;
           })}
         </nav>
 
@@ -183,10 +160,9 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
       {palette && (
         <CommandPalette
           onClose={() => setPalette(false)}
-          onQuickAdd={() => setQuickAdd(true)}
+          onQuickAdd={() => router.push("/admin/add-job")}
         />
       )}
-      {quickAdd && <QuickAdd onClose={() => setQuickAdd(false)} />}
     </div>
   );
 }

@@ -6,7 +6,11 @@ import { Panel } from "@/components/ui/panel";
 import { MatchScore } from "@/components/ui/match-score";
 import { api, TODAY, type ApplicationJob, type Client } from "@/lib/api";
 
-type Mode = "csv" | "paste";
+type Mode = "manual" | "csv" | "paste";
+
+function newId() {
+  return `load_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+}
 
 export function LoadJobsTab({
   client,
@@ -15,7 +19,7 @@ export function LoadJobsTab({
   client: Client;
   onAdd: (jobs: ApplicationJob[]) => void;
 }) {
-  const [mode, setMode] = useState<Mode>("csv");
+  const [mode, setMode] = useState<Mode>("manual");
   const [text, setText] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ApplicationJob[]>([]);
@@ -183,11 +187,12 @@ export function LoadJobsTab({
   };
 
   // Persist jobs to API shortlist
-  const handleImport = async () => {
-    if (preview.length === 0) return;
+  const handleImport = async (jobsToImport?: ApplicationJob[]) => {
+    const targets = jobsToImport || preview;
+    if (targets.length === 0) return;
     setImporting(true);
     try {
-      const validJobs = preview.filter((j) => j.title.trim() && j.company.trim() && j.company !== "—");
+      const validJobs = targets.filter((j) => j.title.trim() && j.company.trim() && j.company !== "—");
       if (validJobs.length === 0) {
         alert("No valid jobs to import. Please make sure Job Title and Company are filled.");
         setImporting(false);
@@ -219,17 +224,25 @@ export function LoadJobsTab({
   };
 
   return (
-    <div className="mt-6 space-y-6">
+    <div className="mt-4 space-y-5 animate-[fadein_.15s_ease]">
       <div className="flex gap-4">
         {/* Toggle Mode */}
-        <div className="flex gap-1 rounded-md border border-panel-border bg-panel/30 p-0.5 text-[12px] w-64">
+        <div className="flex gap-1 rounded-md border border-panel-border bg-panel/30 p-0.5 text-[12px] w-80">
+          <button
+            onClick={() => handleModeChange("manual")}
+            className={`flex-1 rounded px-3 py-1.5 font-medium transition-colors ${
+              mode === "manual" ? "bg-[var(--accent)] text-white" : "text-muted hover:text-zinc-200"
+            }`}
+          >
+            Manual Entry
+          </button>
           <button
             onClick={() => handleModeChange("csv")}
             className={`flex-1 rounded px-3 py-1.5 font-medium transition-colors ${
               mode === "csv" ? "bg-[var(--accent)] text-white" : "text-muted hover:text-zinc-200"
             }`}
           >
-            CSV File Upload
+            CSV Upload
           </button>
           <button
             onClick={() => handleModeChange("paste")}
@@ -237,13 +250,21 @@ export function LoadJobsTab({
               mode === "paste" ? "bg-[var(--accent)] text-white" : "text-muted hover:text-zinc-200"
             }`}
           >
-            Bulk Copy-Paste
+            Bulk Paste
           </button>
         </div>
       </div>
 
-      <Panel className="p-6">
-        {mode === "csv" ? (
+      <Panel className="p-5">
+        {mode === "manual" && (
+          <ManualEntryForm
+            clientId={client.id}
+            clientName={client.name}
+            onAdd={(jobs) => handleImport(jobs)}
+            disabled={importing}
+          />
+        )}
+        {mode === "csv" && (
           <div className="space-y-4">
             <div className="flex flex-col items-center justify-center border-2 border-dashed border-panel-border rounded-xl p-8 bg-background/25 hover:border-zinc-500 transition-colors">
               <input
@@ -267,9 +288,9 @@ export function LoadJobsTab({
                 />
               </svg>
               <p className="text-[13px] text-zinc-200 font-medium">
-                {csvFile ? `Selected: ${csvFile.name}` : "Upload your job roster CSV file"}
+                {csvFile ? `Selected: ${csvFile.name}` : "Upload job roster CSV file"}
               </p>
-              <p className="text-[11px] text-muted mt-1">Supports standard CSV column headers (Title, Company, Location, Salary)</p>
+              <p className="text-[11px] text-muted mt-1">Supports column headers (Title, Company, Location, Salary)</p>
               <Button
                 variant="secondary"
                 size="sm"
@@ -280,7 +301,8 @@ export function LoadJobsTab({
               </Button>
             </div>
           </div>
-        ) : (
+        )}
+        {mode === "paste" && (
           <div className="space-y-4">
             <div>
               <label className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted block mb-1.5">
@@ -312,7 +334,7 @@ export function LoadJobsTab({
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Successfully imported {successCount} jobs to the client&apos;s active week shortlist!
+          Successfully imported {successCount} jobs to {client.name}&apos;s shortlist!
         </div>
       )}
 
@@ -325,7 +347,7 @@ export function LoadJobsTab({
             </h3>
             <Button
               variant="primary"
-              onClick={handleImport}
+              onClick={() => handleImport()}
               disabled={importing}
             >
               {importing ? "Importing..." : `Import ${preview.filter(j => j.title && j.company && j.company !== "—").length} valid jobs`}
@@ -374,5 +396,112 @@ export function LoadJobsTab({
         </div>
       )}
     </div>
+  );
+}
+
+function ManualEntryForm({
+  clientId,
+  clientName,
+  onAdd,
+  disabled,
+}: {
+  clientId: string;
+  clientName: string;
+  onAdd: (jobs: ApplicationJob[]) => void;
+  disabled: boolean;
+}) {
+  const [title, setTitle] = useState("");
+  const [company, setCompany] = useState("");
+  const [location, setLocation] = useState("");
+  const [salary, setSalary] = useState("");
+
+  const canAdd = title.trim() && company.trim() && !disabled;
+
+  function submit() {
+    if (!canAdd) return;
+    onAdd([
+      {
+        id: newId(),
+        clientId,
+        clientName,
+        company: company.trim(),
+        title: title.trim(),
+        location: location.trim() || "—",
+        salary: salary.trim() || undefined,
+        status: "sourced",
+        addedVia: "manual",
+        updatedAt: TODAY,
+        matchScore: Math.floor(Math.random() * 29) + 70,
+      },
+    ]);
+    setTitle("");
+    setCompany("");
+    setLocation("");
+    setSalary("");
+  }
+
+  return (
+    <div className="space-y-3.5 max-w-xl">
+      <div className="grid grid-cols-2 gap-4">
+        <Labeled label="Job title *">
+          <Input value={title} onChange={setTitle} placeholder="Senior PM, Product Lead" />
+        </Labeled>
+        <Labeled label="Company *">
+          <Input value={company} onChange={setCompany} placeholder="Google, Stripe" />
+        </Labeled>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Labeled label="Location">
+          <Input value={location} onChange={setLocation} placeholder="Remote (US), New York, NY" />
+        </Labeled>
+        <Labeled label="Salary">
+          <Input value={salary} onChange={setSalary} placeholder="$180k-$220k" />
+        </Labeled>
+      </div>
+      <Button
+        variant="primary"
+        className="w-full mt-2"
+        onClick={submit}
+        disabled={!canAdd}
+      >
+        Add Job to Shortlist
+      </Button>
+    </div>
+  );
+}
+
+function Labeled({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function Input({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full rounded-md border border-panel-border bg-transparent px-2.5 py-1.5 text-[12.5px] outline-none placeholder:text-zinc-600 focus:border-zinc-500 transition-colors"
+    />
   );
 }
