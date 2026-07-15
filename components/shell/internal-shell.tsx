@@ -7,7 +7,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore, Fragment } from "react";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { QuickAdd } from "@/components/shell/quick-add";
 import { useCurrentUser, useStaffSession } from "@/components/shell/role-context";
@@ -87,6 +87,7 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const nav = NAV.filter((item) => !item.show || item.show(user));
+  const clientsIndex = nav.findIndex((item) => item.label === "Clients");
 
   return (
     <div className="flex min-h-screen">
@@ -96,9 +97,9 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-0.5 px-2 py-2">
-          {nav.map((item) => {
+          {nav.map((item, idx) => {
             const active = isActive(pathname, item.href);
-            return (
+            const linkEl = (
               <Link
                 key={item.href}
                 href={item.href}
@@ -116,20 +117,29 @@ export function InternalShell({ children }: { children: React.ReactNode }) {
                 {item.label}
               </Link>
             );
-          })}
 
-          <button
-            onClick={() => setQuickAdd(true)}
-            className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-[13px] text-muted hover:bg-zinc-800/40 hover:text-zinc-200 transition-colors"
-          >
-            <span className="flex items-center gap-2.5">
-              <span className="text-zinc-500">
-                <IconPlus />
-              </span>
-              Add job
-            </span>
-            <Kbd>S</Kbd>
-          </button>
+            if (idx === clientsIndex) {
+              return (
+                <Fragment key={item.href}>
+                  {linkEl}
+                  <button
+                    onClick={() => setQuickAdd(true)}
+                    className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-[13px] text-muted hover:bg-zinc-800/40 hover:text-zinc-200 transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <span className="text-zinc-500">
+                        <IconPlus />
+                      </span>
+                      Add job
+                    </span>
+                    <Kbd>S</Kbd>
+                  </button>
+                </Fragment>
+              );
+            }
+
+            return linkEl;
+          })}
         </nav>
 
         <div className="space-y-2 px-2 py-3">
