@@ -41,8 +41,9 @@ export default function ClientProfilePage() {
     api.me.getDocuments().then(setBaseDocs);
   }, [client.id]);
   const docs = effectiveDocuments(baseDocs, documentsById[client.id]);
-  const byKind = new Map(docs.map((d) => [d.kind, d]));
-
+  const resumes = docs.filter((d) => d.kind === "resume");
+  const byKind = new Map(docs.filter((d) => d.kind !== "resume").map((d) => [d.kind, d]));
+  const nonResumeKinds = (DOCUMENT_KINDS as typeof DOCUMENT_KINDS).filter((k) => k !== "resume");
   const salary = formatSalaryRange(p?.salaryMin, p?.salaryMax) ?? "—";
 
   return (
@@ -98,7 +99,30 @@ export default function ClientProfilePage() {
         <div className="space-y-6">
           <Section title="Documents">
             <div className="divide-y divide-panel-border">
-              {DOCUMENT_KINDS.map((kind) => {
+              {/* Resumes — may be multiple */}
+              <div className="py-2.5">
+                <p className="text-[13px] font-medium mb-1">Resume</p>
+                {resumes.length === 0 ? (
+                  <p className="text-[11px] text-muted">Not on file</p>
+                ) : (
+                  <div className="space-y-1.5 mt-1">
+                    {resumes.map((r, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <svg className="w-3 h-3 text-zinc-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-[11.5px] text-zinc-300 truncate">{r.fileName}</span>
+                        <span className="shrink-0 rounded-full bg-status-offer/15 px-1.5 py-0.5 text-[9px] font-semibold text-status-offer">
+                          Uploaded
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Other kinds — single file */}
+              {nonResumeKinds.map((kind) => {
                 const doc = byKind.get(kind);
                 return (
                   <div key={kind} className="flex items-center gap-3 py-2.5">
@@ -146,7 +170,7 @@ export default function ClientProfilePage() {
       <p className="text-[12px] text-muted">
         Need to update something? Message{" "}
         <span className="font-medium text-foreground">{client.ownerName}</span>,
-        your Job Helper, and we’ll take care of it.
+        your Job Helper, and we'll take care of it.
       </p>
     </div>
   );

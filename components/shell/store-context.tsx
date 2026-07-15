@@ -93,6 +93,17 @@ interface StoreCtx extends StoreShape {
     fileName: string,
     uploadedBy: string,
   ) => void;
+  addDocument: (
+    clientId: string,
+    kind: ClientDocument["kind"],
+    fileName: string,
+    uploadedBy: string,
+  ) => void;
+  removeDocument: (
+    clientId: string,
+    kind: ClientDocument["kind"],
+    fileName: string,
+  ) => void;
   setTierQuota: (tier: string, quota: number) => void;
   setSourceEnabled: (source: JobSource, enabled: boolean) => void;
   logAudit: (actor: string, action: string, entity: string) => void;
@@ -237,6 +248,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           };
         });
         api.upsertDocument(clientId, kind, fileName).catch(reportError("upsertDocument"));
+      },
+
+      addDocument: (clientId, kind, fileName, uploadedBy) => {
+        update((s) => {
+          const existing = s.documentsById[clientId] ?? [];
+          const doc: ClientDocument = { kind, fileName, uploadedAt: today(), uploadedBy };
+          return {
+            ...s,
+            documentsById: {
+              ...s.documentsById,
+              [clientId]: [doc, ...existing],
+            },
+          };
+        });
+        api.upsertDocument(clientId, kind, fileName).catch(reportError("addDocument"));
+      },
+
+      removeDocument: (clientId, kind, fileName) => {
+        update((s) => {
+          const existing = s.documentsById[clientId] ?? [];
+          return {
+            ...s,
+            documentsById: {
+              ...s.documentsById,
+              [clientId]: existing.filter((d) => !(d.kind === kind && d.fileName === fileName)),
+            },
+          };
+        });
       },
 
       setTierQuota: (tier, quota) => {

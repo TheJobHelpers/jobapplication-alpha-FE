@@ -84,6 +84,8 @@ export function ClientWorkspace({
     sendQuestionnaire,
     documentsById,
     upsertDocument,
+    addDocument,
+    removeDocument,
     assignJob,
     setJobStatus,
     logAudit,
@@ -122,6 +124,22 @@ export function ClientWorkspace({
       );
     },
     [client.id, client.name, upsertDocument, logAudit, user.name],
+  );
+
+  const handleAddResume = useCallback(
+    (fileName: string) => {
+      addDocument(client.id, "resume", fileName, user.name);
+      logAudit(user.name, `Added resume (${fileName})`, client.name);
+    },
+    [client.id, client.name, addDocument, logAudit, user.name],
+  );
+
+  const handleRemoveDoc = useCallback(
+    (kind: DocumentKind, fileName: string) => {
+      removeDocument(client.id, kind, fileName);
+      logAudit(user.name, `Removed ${DOCUMENT_KIND_LABEL[kind].toLowerCase()} (${fileName})`, client.name);
+    },
+    [client.id, client.name, removeDocument, logAudit, user.name],
   );
 
   const [shortlist, setShortlist] = useState<ApplicationJob[]>(() =>
@@ -265,7 +283,13 @@ export function ClientWorkspace({
           {tab === "history" && <History jobs={history} clientName={client.name} />}
           {tab === "profile" && <Profile client={client} />}
           {tab === "documents" && (
-            <Documents docs={docs} editable={editable} onUpload={handleUpload} />
+            <Documents
+              docs={docs}
+              editable={editable}
+              onUpload={handleUpload}
+              onAddResume={handleAddResume}
+              onRemove={handleRemoveDoc}
+            />
           )}
           {tab === "load" && (
             <LoadJobsTab client={client} onAdd={handleAdd} />
@@ -583,30 +607,105 @@ function Profile({ client }: { client: Client }) {
 // ── Documents ─────────────────────────────────────────────────────────
 // Upload/replace stores the file name only (files are mocked until the
 // backend); download stays disabled for the same reason.
+// Resumes support multiple files; all other kinds are single-file (replace).
 function Documents({
   docs,
   editable,
   onUpload,
+  onAddResume,
+  onRemove,
 }: {
   docs: ClientDocument[];
   editable: boolean;
   onUpload: (kind: DocumentKind, fileName: string) => void;
+  onAddResume: (fileName: string) => void;
+  onRemove: (kind: DocumentKind, fileName: string) => void;
 }) {
-  const byKind = new Map(docs.map((d) => [d.kind, d]));
+  const resumes = docs.filter((d) => d.kind === "resume");
+  const nonResumeKinds = (DOCUMENT_KINDS as DocumentKind[]).filter((k) => k !== "resume");
+  const byKind = new Map(docs.filter((d) => d.kind !== "resume").map((d) => [d.kind, d]));
+  const resumeRef = useRef<HTMLInputElement>(null);
+
   return (
-    <div className="mt-6">
+    <div className="mt-6 space-y-4">
+      {/* Resumes section — supports multiple files */}
+      <Panel className="overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border/40">
+          <div>
+            <p className="text-[13px] font-medium text-zinc-100">Resume</p>
+            <p className="text-[11px] text-muted mt-0.5">
+              {resumes.length === 0 ? "Not on file" : `${resumes.length} file${resumes.length > 1 ? "s" : ""} uploaded`}
+            </p>
+          </div>
+          {editable && (
+            <>
+              <input
+                ref={resumeRef}
+                type="file"
+                accept=".pdf,.doc,.docx"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  Array.from(e.target.files ?? []).forEach((f) => onAddResume(f.name));
+                  e.target.value = "";
+                }}
+              />
+              <Button size="sm" onClick={() => resumeRef.current?.click()}>
+                {resumes.length === 0 ? "Upload" : "Add another"}
+              </Button>
+            </>
+          )}
+        </div>
+        {resumes.length > 0 ? (
+          <div className="divide-y divide-panel-border/20">
+            {resumes.map((r, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                <svg className="w-3.5 h-3.5 text-zinc-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12.5px] text-zinc-200">{r.fileName}</p>
+                  <p className="text-[11px] text-muted">{r.uploadedAt}{r.uploadedBy ? ` · ${r.uploadedBy}` : ""}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-status-offer/15 px-2 py-0.5 text-[10px] font-semibold text-status-offer">
+                  Uploaded
+                </span>
+                {editable && (
+                  <button
+                    onClick={() => onRemove("resume", r.fileName)}
+                    className="shrink-0 text-zinc-600 hover:text-red-400 transition-colors"
+                    title="Remove this resume"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-4 py-3">
+            <p className="text-[11.5px] text-zinc-600 italic">No resumes uploaded yet.</p>
+          </div>
+        )}
+      </Panel>
+
+      {/* Other document kinds — single file each */}
       <Panel className="divide-y divide-panel-border overflow-hidden">
-        {DOCUMENT_KINDS.map((kind) => (
+        {nonResumeKinds.map((kind) => (
           <DocumentRow
             key={kind}
             kind={kind}
             doc={byKind.get(kind)}
             editable={editable}
             onUpload={onUpload}
+            onRemove={onRemove}
           />
         ))}
       </Panel>
-      <p className="mt-3 text-[11.5px] text-zinc-500">
+
+      <p className="text-[11.5px] text-zinc-500">
         Files are mocked until the backend lands — uploads keep the file name
         only, and download activates then.
       </p>
@@ -619,11 +718,13 @@ function DocumentRow({
   doc,
   editable,
   onUpload,
+  onRemove,
 }: {
   kind: DocumentKind;
   doc?: ClientDocument;
   editable: boolean;
   onUpload: (kind: DocumentKind, fileName: string) => void;
+  onRemove: (kind: DocumentKind, fileName: string) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   return (
@@ -670,6 +771,17 @@ function DocumentRow({
           <Button size="sm" onClick={() => fileRef.current?.click()}>
             {doc ? "Replace" : "Upload"}
           </Button>
+          {doc && (
+            <button
+              onClick={() => onRemove(kind, doc.fileName)}
+              className="text-zinc-600 hover:text-red-400 transition-colors"
+              title="Remove"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </>
       )}
     </div>
