@@ -36,6 +36,41 @@ export * from "./auth";
 export { ApiError } from "./http";
 export { CURRENT_WEEK, TODAY } from "./fixtures";
 
+// ── Public CQFO questionnaire (/q/{token}) — no auth, the token is the access.
+// The client-facing questionnaire page uses these to load the real client by
+// token, autosave progress (→ in_progress), and submit (→ completed + seeds
+// sourcing prefs). Mirrors QuestionnairePublicOut on the backend.
+export interface QuestionnairePublic {
+  clientName: string;
+  status: QuestionnaireStatus;
+  // Saved answers so far. The link has no login, so resuming on a different
+  // device/browser has to come from here, not localStorage.
+  answers: Record<string, unknown>;
+}
+export const publicQuestionnaire = {
+  get(token: string): Promise<QuestionnairePublic> {
+    return apiFetch(`/q/${encodeURIComponent(token)}`);
+  },
+  saveProgress(
+    token: string,
+    answers: Record<string, unknown>,
+  ): Promise<QuestionnairePublic> {
+    return apiFetch(`/q/${encodeURIComponent(token)}`, {
+      method: "PATCH",
+      body: { answers },
+    });
+  },
+  submit(
+    token: string,
+    answers: Record<string, unknown>,
+  ): Promise<QuestionnairePublic> {
+    return apiFetch(`/q/${encodeURIComponent(token)}`, {
+      method: "PUT",
+      body: { answers },
+    });
+  },
+};
+
 // ── Mutation payloads (mirror the backend *Create/*Patch schemas) ────────
 export interface ClientCreateInput {
   name: string;
