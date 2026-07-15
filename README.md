@@ -1,4 +1,4 @@
-# jobapplication-alpha-FE
+# frontend-jobapplication-alpha
 
 Frontend for **JA-Alpha** — the multi-portal job application management platform.
 Next.js 16 (App Router) · React 19 · TypeScript 5 · Tailwind CSS 4.

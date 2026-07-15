@@ -2,17 +2,17 @@
 
 // Profile — what we know about the client and what we're searching for on their
 // behalf. Read-mostly in the mock: preferences and documents come from onboarding
-// (the CQFO questionnaire); changes go through their Job Helper for now.
+// (the CQFO questionnaire); changes go through their Job Helper for now. Laid out
+// as a two-column grid at the same width as the dashboard so the page fills the
+// space instead of hugging a narrow column.
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useClientPortal } from "@/components/client/client-portal-context";
-import {
-  effectiveDocuments,
-  useStore,
-} from "@/components/shell/store-context";
+import { effectiveDocuments, useStore } from "@/components/shell/store-context";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
+import { formatSalaryRange } from "@/lib/format";
 import {
   api,
   DOCUMENT_KIND_LABEL,
@@ -43,85 +43,105 @@ export default function ClientProfilePage() {
   const docs = effectiveDocuments(baseDocs, documentsById[client.id]);
   const byKind = new Map(docs.map((d) => [d.kind, d]));
 
-  const salary =
-    p?.salaryMin || p?.salaryMax
-      ? `$${((p.salaryMin ?? 0) / 1000).toFixed(0)}k – $${((p.salaryMax ?? 0) / 1000).toFixed(0)}k`
-      : "—";
+  const salary = formatSalaryRange(p?.salaryMin, p?.salaryMax) ?? "—";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-8 py-8">
-      <header>
-        <h1 className="text-[20px] font-semibold tracking-tight">Your profile</h1>
-        <p className="mt-1 text-[14px] text-muted">
-          What we know about you and what we’re looking for.
-        </p>
+    <div className="mx-auto max-w-5xl space-y-6 px-8 py-8">
+      <header className="flex items-center gap-3.5">
+        <span
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[14px] font-semibold"
+          style={{
+            backgroundColor: "color-mix(in srgb, var(--accent) 16%, transparent)",
+            color: "var(--accent-strong)",
+          }}
+        >
+          {initials(client.name)}
+        </span>
+        <div>
+          <h1 className="text-[20px] font-semibold tracking-tight">
+            {client.name}
+          </h1>
+          <p className="mt-0.5 text-[13px] text-muted">
+            {client.tier} · {client.ownerName} is your Job Helper
+          </p>
+        </div>
       </header>
 
-      <Section title="Basic information">
-        <Row label="Name" value={client.name} />
-        <Row label="Service tier" value={client.tier} />
-        <Row label="Your Job Helper" value={client.ownerName} />
-        <Row
-          label="Job approval"
-          value={
-            client.approvalRequired
-              ? "You review jobs before we apply"
-              : "We apply on your behalf"
-          }
-        />
-      </Section>
+      <div className="grid gap-6 md:grid-cols-2 md:items-start">
+        {/* Left column */}
+        <div className="space-y-6">
+          <Section title="Basic information">
+            <Row label="Name" value={client.name} />
+            <Row label="Service tier" value={client.tier} />
+            <Row label="Your Job Helper" value={client.ownerName} />
+            <Row
+              label="Job approval"
+              value={
+                client.approvalRequired
+                  ? "You review jobs before we apply"
+                  : "We apply on your behalf"
+              }
+            />
+          </Section>
 
-      {p && (
-        <Section title="What we're searching for">
-          <Row label="Roles" value={p.titles.join(", ")} />
-          <Row label="Locations" value={p.locations.join(", ")} />
-          <Row label="Work style" value={WORK_TYPE_LABEL[p.workType]} />
-          <Row label="Target salary" value={salary} />
-        </Section>
-      )}
+          {p && (
+            <Section title="What we're searching for">
+              <Row label="Roles" value={p.titles.join(", ")} />
+              <Row label="Locations" value={p.locations.join(", ")} />
+              <Row label="Work style" value={WORK_TYPE_LABEL[p.workType]} />
+              <Row label="Target salary" value={salary} />
+            </Section>
+          )}
+        </div>
 
-      <Section title="Documents">
-        <div className="divide-y divide-panel-border">
-          {DOCUMENT_KINDS.map((kind) => {
-            const doc = byKind.get(kind);
-            return (
-              <div key={kind} className="flex items-center gap-3 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <span className="text-[13px]">{DOCUMENT_KIND_LABEL[kind]}</span>
-                  {doc && (
-                    <p className="truncate text-[11px] text-muted">
-                      {doc.fileName} · {doc.uploadedAt}
-                    </p>
-                  )}
-                </div>
-                {doc ? (
-                  <span className="rounded-full bg-status-offer/15 px-2 py-0.5 text-[10px] font-semibold text-status-offer">
-                    Uploaded
-                  </span>
-                ) : (
-                  <span className="rounded-full border border-panel-border px-2 py-0.5 text-[10px] font-semibold text-muted">
-                    Missing
-                  </span>
+        {/* Right column */}
+        <div className="space-y-6">
+          <Section title="Documents">
+            <div className="divide-y divide-panel-border">
+              {DOCUMENT_KINDS.map((kind) => {
+                const doc = byKind.get(kind);
+                return (
+                  <div key={kind} className="flex items-center gap-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[13px]">
+                        {DOCUMENT_KIND_LABEL[kind]}
+                      </span>
+                      {doc && (
+                        <p className="truncate text-[11px] text-muted">
+                          {doc.fileName} · {doc.uploadedAt}
+                        </p>
+                      )}
+                    </div>
+                    {doc ? (
+                      <span className="shrink-0 rounded-full bg-status-offer/15 px-2 py-0.5 text-[10px] font-semibold text-status-offer">
+                        Uploaded
+                      </span>
+                    ) : (
+                      <span className="shrink-0 rounded-full border border-panel-border px-2 py-0.5 text-[10px] font-semibold text-muted">
+                        Missing
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {q && (
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-panel-border pt-3">
+                <p className="text-[12.5px] text-muted">
+                  Questionnaire: {QUESTIONNAIRE_LABEL[q.status]}
+                </p>
+                {q.token && q.status !== "completed" && (
+                  <Link href={`/q/${q.token}`}>
+                    <Button variant="secondary" size="sm">
+                      Continue questionnaire
+                    </Button>
+                  </Link>
                 )}
               </div>
-            );
-          })}
-        </div>
-        {q && (
-          <div className="mt-3 flex items-center justify-between border-t border-panel-border pt-3">
-            <p className="text-[12.5px] text-muted">
-              Questionnaire: {QUESTIONNAIRE_LABEL[q.status]}
-            </p>
-            {q.token && q.status !== "completed" && (
-              <Link href={`/q/${q.token}`}>
-                <Button variant="secondary" size="sm">
-                  Continue questionnaire
-                </Button>
-              </Link>
             )}
-          </div>
-        )}
-      </Section>
+          </Section>
+        </div>
+      </div>
 
       <p className="text-[12px] text-muted">
         Need to update something? Message{" "}
@@ -130,6 +150,15 @@ export default function ClientProfilePage() {
       </p>
     </div>
   );
+}
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
 function Section({
