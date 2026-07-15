@@ -37,8 +37,15 @@ export function genToken(clientId: string): string {
   return `tok_${clientId.slice(-6)}_${Date.now().toString(36)}`;
 }
 
+// Build the public questionnaire URL against the app's real origin — the
+// deployed site in prod (NEXT_PUBLIC_APP_URL, e.g. the Vercel/custom domain) or
+// whatever origin the staff are on (localhost in dev). The old hardcoded
+// app.ja-alpha.com domain didn't exist, so the link couldn't be opened.
 export function qUrl(token?: string): string {
-  return `https://app.ja-alpha.com/q/${token ?? ""}`;
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (typeof window !== "undefined" ? window.location.origin : "");
+  return `${base}/q/${token ?? ""}`;
 }
 
 export function QuestionnaireStatusChip({ status }: { status: QuestionnaireStatus }) {
