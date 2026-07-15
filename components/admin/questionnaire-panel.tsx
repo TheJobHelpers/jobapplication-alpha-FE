@@ -4,13 +4,15 @@
 // Staff send the public link, copy it, and track whether the client completed
 // it. Self-contained: reads/writes the store, gated to editors of the client.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCurrentUser } from "@/components/shell/role-context";
-import { useStore } from "@/components/shell/store-context";
+import { useStore, effectiveDocuments } from "@/components/shell/store-context";
 import { Button } from "@/components/ui/button";
 import {
   QUESTIONNAIRE_LABEL,
+  api,
   type Client,
+  type ClientDocument,
   type QuestionnaireState,
   type QuestionnaireStatus,
 } from "@/lib/api";
@@ -62,8 +64,26 @@ export function QuestionnaireStatusChip({ status }: { status: QuestionnaireStatu
 
 export function QuestionnairePanel({ client }: { client: Client }) {
   const { user } = useCurrentUser();
-  const { questionnaireById, sendQuestionnaire, setQuestionnaireStatus } = useStore();
+  const {
+    questionnaireById,
+    documentsById,
+    sendQuestionnaire,
+    setQuestionnaireStatus,
+    upsertDocument,
+    logAudit,
+  } = useStore();
   const q = effectiveQuestionnaire(client, questionnaireById);
+  const [baseDocs, setBaseDocs] = useState<ClientDocument[]>([]);
+
+  useEffect(() => {
+    api.getDocuments(client.id)
+      .then(setBaseDocs)
+      .catch((err) => console.error("Failed to load documents:", err));
+  }, [client.id]);
+
+  const docs = effectiveDocuments(baseDocs, documentsById[client.id]);
+  const cqfoDoc = docs.find((d) => d.kind === "cqfo");
+
   const canManage = canEditClient(user, client.ownerId);
   const [copied, setCopied] = useState(false);
 
@@ -72,6 +92,14 @@ export function QuestionnairePanel({ client }: { client: Client }) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     });
+  }
+
+  function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    upsertDocument(client.id, "cqfo", file.name, user.name);
+    setQuestionnaireStatus(client.id, "completed");
+    logAudit(user.name, `Uploaded questionnaire PDF (${file.name})`, client.name);
   }
 
   return (
@@ -89,31 +117,61 @@ export function QuestionnairePanel({ client }: { client: Client }) {
             Not sent yet. Email {client.name.split(" ")[0]} the CQFO link, or enter
             answers manually.
           </p>
-          {canManage && (
-            <Button
-              variant="primary"
-              size="sm"
-              className="mt-2"
-              onClick={() => sendQuestionnaire(client.id)}
-            >
-              Send questionnaire
-            </Button>
-          )}
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            {canManage && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => sendQuestionnaire(client.id)}
+              >
+                Send questionnaire
+              </Button>
+            )}
+            {canManage && (
+              <label className="flex items-center gap-1.5 cursor-pointer rounded-md border border-panel-border px-3 py-1.5 text-[11.5px] font-semibold text-zinc-300 hover:bg-zinc-800/40 transition-colors">
+                <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Upload answers PDF
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={handlePdfUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
         </div>
       ) : (
         <div className="mt-3 space-y-3">
           {/* Link + copy */}
-          <div className="flex items-center gap-2 rounded-md border border-panel-border p-2">
-            <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-[var(--accent)]">
-              {qUrl(q.token)}
-            </span>
-            <button
-              onClick={copy}
-              className="shrink-0 rounded border border-zinc-700 px-2 py-1 text-[11px] font-semibold text-zinc-200 hover:bg-zinc-800/60"
-            >
-              {copied ? "Copied!" : "Copy link"}
-            </button>
-          </div>
+          {q.status !== "completed" && (
+            <div className="flex items-center gap-2 rounded-md border border-panel-border p-2">
+              <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-[var(--accent)]">
+                {qUrl(q.token)}
+              </span>
+              <button
+                onClick={copy}
+                className="shrink-0 rounded border border-zinc-700 px-2 py-1 text-[11px] font-semibold text-zinc-200 hover:bg-zinc-800/60"
+              >
+                {copied ? "Copied!" : "Copy link"}
+              </button>
+            </div>
+          )}
+
+          {/* Uploaded PDF indicator */}
+          {cqfoDoc && (
+            <div className="flex items-center gap-2 rounded-md border border-status-offer/30 bg-status-offer/5 px-3 py-2 text-[11.5px]">
+              <svg className="w-4 h-4 text-status-offer shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-zinc-200 truncate">{cqfoDoc.fileName}</p>
+                <p className="text-[10px] text-muted">Uploaded on {cqfoDoc.uploadedAt} by {cqfoDoc.uploadedBy || "staff"}</p>
+              </div>
+            </div>
+          )}
 
           {/* Timeline */}
           <div className="flex flex-wrap gap-x-5 gap-y-1 text-[11.5px] text-muted">
@@ -132,7 +190,7 @@ export function QuestionnairePanel({ client }: { client: Client }) {
 
           {/* Actions */}
           {canManage && q.status !== "completed" && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="primary"
                 size="sm"
@@ -156,16 +214,44 @@ export function QuestionnairePanel({ client }: { client: Client }) {
               >
                 Resend
               </Button>
+              
+              <label className="flex items-center gap-1.5 cursor-pointer rounded-md border border-panel-border px-3 py-1.5 text-[11.5px] font-semibold text-zinc-300 hover:bg-zinc-800/40 transition-colors">
+                <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Upload answers PDF
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={handlePdfUpload}
+                  className="hidden"
+                />
+              </label>
             </div>
           )}
           {q.status === "completed" && canManage && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setQuestionnaireStatus(client.id, "sent")}
-            >
-              Reopen
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setQuestionnaireStatus(client.id, "sent")}
+              >
+                Reopen
+              </Button>
+              
+              <label className="flex items-center gap-1.5 cursor-pointer rounded-md border border-panel-border px-3 py-1.5 text-[11.5px] font-semibold text-zinc-300 hover:bg-zinc-800/40 transition-colors">
+                <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Replace PDF
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={handlePdfUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
           )}
         </div>
       )}
