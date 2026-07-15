@@ -94,6 +94,16 @@ export function ClientWorkspace({
   const [tab, setTab] = useState<Tab>("profile");
   const [week, setWeek] = useState(29);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab") as Tab;
+      if (tabParam && ["profile", "week", "history", "documents", "load"].includes(tabParam)) {
+        setTab(tabParam);
+      }
+    }
+  }, []);
+
   // Documents: fixture base merged with uploads/replacements from the store.
   const [baseDocs, setBaseDocs] = useState<ClientDocument[]>([]);
   useEffect(() => {
