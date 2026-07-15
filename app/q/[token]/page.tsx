@@ -261,7 +261,7 @@ function StepView({ step, answers, set, onNext, clientName }: {
         <div className="space-y-4 text-center">
           <div className="mx-auto h-12 w-12 rounded-full bg-accent/15 text-accent-strong flex items-center justify-center text-xl">✓</div>
           <h1 className="text-2xl font-semibold text-foreground">All done!</h1>
-          <p className="text-muted max-w-md mx-auto">
+          <p className="text-muted max-w-xl mx-auto" style={{ textWrap: "pretty" }}>
             <span>
               Thank you for your cooperation. The Job Helpers team has been notified, and
               you can expect your first job applications to begin soon.
