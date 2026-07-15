@@ -5,12 +5,14 @@
 // review, JA works application stages, managers/admins do anything). Group by
 // client or team member (manager/admin) turns the board into swimlanes.
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useCurrentUser } from "@/components/shell/role-context";
 import { applyJobOverride, useStore } from "@/components/shell/store-context";
 import { CommentCount } from "@/components/ui/job-comments";
 import { JobDetailModal } from "@/components/ui/job-detail-modal";
 import { MatchScore } from "@/components/ui/match-score";
+import { StatusChip } from "@/components/ui/status-chip";
+import { Panel } from "@/components/ui/panel";
 import { STATUS_META, type ApplicationJob, type JobStatus } from "@/lib/api";
 import { canAssign, canTransition } from "@/lib/permissions";
 
@@ -89,6 +91,20 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
   const [client, setClient] = useState("all");
   const [staleOnly, setStaleOnly] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [view, setView] = useState<"board" | "list">("board");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const clientParam = params.get("client");
+      const assigneeParam = params.get("assignee");
+      const viewParam = params.get("view");
+
+      if (clientParam) setClient(clientParam);
+      if (assigneeParam) setAssignee(assigneeParam);
+      if (viewParam === "board" || viewParam === "list") setView(viewParam);
+    }
+  }, []);
 
   const clientNames = useMemo(
     () => [...new Set(initial.map((j) => j.clientName))].sort(),
@@ -161,37 +177,44 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
 
       {/* Controls */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Segment label="Group">
-          <Seg
-            active={group === "none"}
-            onClick={() => {
-              setGroup("none");
-              setCollapsedLanes(new Set());
-            }}
-          >
-            None
-          </Seg>
-          <Seg
-            active={group === "client"}
-            onClick={() => {
-              setGroup("client");
-              setCollapsedLanes(new Set());
-            }}
-          >
-            Client
-          </Seg>
-          {canMemberLens && (
+        <Segment label="View">
+          <Seg active={view === "board"} onClick={() => setView("board")}>Board</Seg>
+          <Seg active={view === "list"} onClick={() => setView("list")}>List</Seg>
+        </Segment>
+
+        {view === "board" && (
+          <Segment label="Group">
             <Seg
-              active={group === "member"}
+              active={group === "none"}
               onClick={() => {
-                setGroup("member");
+                setGroup("none");
                 setCollapsedLanes(new Set());
               }}
             >
-              Assignee
+              None
             </Seg>
-          )}
-        </Segment>
+            <Seg
+              active={group === "client"}
+              onClick={() => {
+                setGroup("client");
+                setCollapsedLanes(new Set());
+              }}
+            >
+              Client
+            </Seg>
+            {canMemberLens && (
+              <Seg
+                active={group === "member"}
+                onClick={() => {
+                  setGroup("member");
+                  setCollapsedLanes(new Set());
+                }}
+              >
+                Assignee
+              </Seg>
+            )}
+          </Segment>
+        )}
 
         <Select value={client} onChange={setClient} label="Client">
           <option value="all">All clients</option>
@@ -220,7 +243,7 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
           Stale &gt; 5 days
         </button>
 
-        {group !== "none" && (
+        {view === "board" && group !== "none" && (
           <button
             onClick={() => {
               const allCollapsed = collapsedLanes.size === lanes.length;
@@ -237,111 +260,115 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
         )}
       </div>
 
-      {/* Board */}
-      <div className="overflow-x-auto pb-4">
-        <div style={{ minWidth: MIN_WIDTH }}>
-          {/* Column headers */}
-          <div className="grid gap-3" style={GRID}>
-            {COLUMNS.map((col) => {
-              const count = filtered.filter((j) => col.statuses.includes(j.status)).length;
-              const invalid = dragJob && !canTransition(user, dragJob.status, col.primary);
-              return (
-                <div
-                  key={col.key}
-                  className={"flex items-center gap-2 px-1 pb-2 " + (invalid ? "opacity-30" : "")}
-                >
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: col.color }} />
-                  <span className="text-[12px] font-semibold text-zinc-200">{col.label}</span>
-                  <span className="font-mono text-[11px] tabular-nums text-zinc-500">{count}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Lanes */}
-          <div className="space-y-5">
-            {lanes.length === 0 && (
-              <p className="py-10 text-center text-[13px] text-zinc-500">No matching applications.</p>
-            )}
-            {lanes.map((lane) => (
-              <div
-                key={lane.key}
-                className={
-                  "border border-panel-border rounded-lg p-3.5 transition-colors " +
-                  (collapsedLanes.has(lane.key) ? "bg-panel/10" : "bg-panel/20")
-                }
-              >
-                {lane.label && (
+      {/* Board or List View */}
+      {view === "board" ? (
+        <div className="overflow-x-auto pb-4">
+          <div style={{ minWidth: MIN_WIDTH }}>
+            {/* Column headers */}
+            <div className="grid gap-3" style={GRID}>
+              {COLUMNS.map((col) => {
+                const count = filtered.filter((j) => col.statuses.includes(j.status)).length;
+                const invalid = dragJob && !canTransition(user, dragJob.status, col.primary);
+                return (
                   <div
-                    onClick={() => {
-                      setCollapsedLanes((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(lane.key)) next.delete(lane.key);
-                        else next.add(lane.key);
-                        return next;
-                      });
-                    }}
-                    className="flex items-center justify-between cursor-pointer border-b border-panel-border/50 pb-2.5 select-none hover:text-zinc-200"
+                    key={col.key}
+                    className={"flex items-center gap-2 px-1 pb-2 " + (invalid ? "opacity-30" : "")}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-zinc-500 text-[10px] w-3 text-center">
-                        {collapsedLanes.has(lane.key) ? "►" : "▼"}
-                      </span>
-                      <span className="text-[12.5px] font-semibold text-zinc-200">{lane.label}</span>
-                      <span className="rounded-full bg-zinc-800/80 px-2 py-0.5 font-mono text-[10px] tabular-nums text-zinc-500">
-                        {lane.jobs.length} application{lane.jobs.length > 1 ? "s" : ""}
-                      </span>
-                    </div>
-                    {/* Summarized counts visible for quick scanning */}
-                    <div className="flex items-center gap-2 text-[11px]">
-                      {getLaneSummary(lane.jobs)}
-                    </div>
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: col.color }} />
+                    <span className="text-[12px] font-semibold text-zinc-200">{col.label}</span>
+                    <span className="font-mono text-[11px] tabular-nums text-zinc-500">{count}</span>
                   </div>
-                )}
-                
-                {!collapsedLanes.has(lane.key) && (
-                  <div className={`grid items-start gap-3 ${lane.label ? "mt-3.5" : ""}`} style={GRID}>
-                    {COLUMNS.map((col) => {
-                      const cards = lane.jobs.filter((j) => col.statuses.includes(j.status));
-                      const invalid = dragJob && !canTransition(user, dragJob.status, col.primary);
-                      return (
-                        <div
-                          key={col.key}
-                          onDragOver={(e) => {
-                            if (dragJob && !invalid) e.preventDefault();
-                          }}
-                          onDrop={() => drop(col.primary)}
-                          className={
-                            "min-h-[60px] rounded-lg border border-dashed p-1.5 transition-colors " +
-                            (dragJob
-                              ? invalid
-                                ? "border-transparent opacity-30"
-                                : "border-[var(--accent)]/50 bg-[color-mix(in_srgb,var(--accent)_6%,transparent)]"
-                              : "border-transparent")
-                          }
-                        >
-                          <div className="space-y-2">
-                            {cards.map((job) => (
-                              <JobCard
-                                key={job.id}
-                                job={job}
-                                author={user.name}
-                                showClient={group !== "client"}
-                                onDragStart={() => setDragId(job.id)}
-                                onDragEnd={() => setDragId(null)}
-                              />
-                            ))}
+                );
+              })}
+            </div>
+
+            {/* Lanes */}
+            <div className="space-y-5">
+              {lanes.length === 0 && (
+                <p className="py-10 text-center text-[13px] text-zinc-500">No matching applications.</p>
+              )}
+              {lanes.map((lane) => (
+                <div
+                  key={lane.key}
+                  className={
+                    "border border-panel-border rounded-lg p-3.5 transition-colors " +
+                    (collapsedLanes.has(lane.key) ? "bg-panel/10" : "bg-panel/20")
+                  }
+                >
+                  {lane.label && (
+                    <div
+                      onClick={() => {
+                        setCollapsedLanes((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(lane.key)) next.delete(lane.key);
+                          else next.add(lane.key);
+                          return next;
+                        });
+                      }}
+                      className="flex items-center justify-between cursor-pointer border-b border-panel-border/50 pb-2.5 select-none hover:text-zinc-200"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-zinc-500 text-[10px] w-3 text-center">
+                          {collapsedLanes.has(lane.key) ? "►" : "▼"}
+                        </span>
+                        <span className="text-[12.5px] font-semibold text-zinc-200">{lane.label}</span>
+                        <span className="rounded-full bg-zinc-800/80 px-2 py-0.5 font-mono text-[10px] tabular-nums text-zinc-500">
+                          {lane.jobs.length} application{lane.jobs.length > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      {/* Summarized counts visible for quick scanning */}
+                      <div className="flex items-center gap-2 text-[11px]">
+                        {getLaneSummary(lane.jobs)}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!collapsedLanes.has(lane.key) && (
+                    <div className={`grid items-start gap-3 ${lane.label ? "mt-3.5" : ""}`} style={GRID}>
+                      {COLUMNS.map((col) => {
+                        const cards = lane.jobs.filter((j) => col.statuses.includes(j.status));
+                        const invalid = dragJob && !canTransition(user, dragJob.status, col.primary);
+                        return (
+                          <div
+                            key={col.key}
+                            onDragOver={(e) => {
+                              if (dragJob && !invalid) e.preventDefault();
+                            }}
+                            onDrop={() => drop(col.primary)}
+                            className={
+                              "min-h-[60px] rounded-lg border border-dashed p-1.5 transition-colors " +
+                              (dragJob
+                                ? invalid
+                                  ? "border-transparent opacity-30"
+                                  : "border-[var(--accent)]/50 bg-[color-mix(in_srgb,var(--accent)_6%,transparent)]"
+                                : "border-transparent")
+                            }
+                          >
+                            <div className="space-y-2">
+                              {cards.map((job) => (
+                                <JobCard
+                                  key={job.id}
+                                  job={job}
+                                  author={user.name}
+                                  showClient={group !== "client"}
+                                  onDragStart={() => setDragId(job.id)}
+                                  onDragEnd={() => setDragId(null)}
+                                />
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <PipelineListView jobs={filtered} author={user.name} />
+      )}
     </div>
   );
 }
@@ -470,5 +497,76 @@ function Select({
         {children}
       </select>
     </label>
+  );
+}
+
+function PipelineListView({
+  jobs,
+  author,
+}: {
+  jobs: ApplicationJob[];
+  author: string;
+}) {
+  const [selectedJob, setSelectedJob] = useState<ApplicationJob | null>(null);
+
+  return (
+    <div className="space-y-4 animate-[fadein_.15s_ease]">
+      <Panel className="overflow-hidden">
+        {/* Table Headers */}
+        <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1.5fr_70px_110px_95px] items-center gap-4 border-b border-panel-border px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
+          <span>Job Title</span>
+          <span>Company</span>
+          <span>Client</span>
+          <span>Assignee</span>
+          <span className="text-center">Score</span>
+          <span>Status</span>
+          <span className="text-right">Activity</span>
+        </div>
+
+        {/* Table Body */}
+        <div className="divide-y divide-panel-border">
+          {jobs.length === 0 ? (
+            <p className="px-4 py-8 text-center text-xs text-zinc-500">
+              No matching applications found.
+            </p>
+          ) : (
+            jobs.map((job) => (
+              <div
+                key={job.id}
+                onClick={() => setSelectedJob(job)}
+                className="grid grid-cols-[1.5fr_1.5fr_1fr_1.5fr_70px_110px_95px] items-center gap-4 px-4 py-3 text-xs transition-colors hover:bg-panel-border/30 cursor-pointer"
+              >
+                <span className="font-semibold text-zinc-100 truncate">
+                  {job.title}
+                </span>
+                <span className="text-zinc-300 truncate">{job.company}</span>
+                <span className="text-zinc-400 truncate">{job.clientName}</span>
+                <span className="text-zinc-400 truncate">
+                  {job.assignedToName || "—"}
+                </span>
+                <div className="flex justify-center">
+                  <MatchScore score={job.matchScore} />
+                </div>
+                <div className="justify-self-start">
+                  <StatusChip status={job.status} />
+                </div>
+                <span className="font-mono text-zinc-500 text-right tabular-nums">
+                  {job.updatedAt}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </Panel>
+
+      {selectedJob && (
+        <JobDetailModal
+          job={selectedJob}
+          author={author}
+          side="team"
+          onClose={() => setSelectedJob(null)}
+        />
+      )}
+    </div>
   );
 }
