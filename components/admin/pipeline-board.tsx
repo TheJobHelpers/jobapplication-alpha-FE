@@ -89,6 +89,7 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
   const [collapsedLanes, setCollapsedLanes] = useState<Set<string>>(new Set());
   const [assignee, setAssignee] = useState("all");
   const [client, setClient] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [staleOnly, setStaleOnly] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [view, setView] = useState<"board" | "list">("board");
@@ -98,10 +99,12 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
       const params = new URLSearchParams(window.location.search);
       const clientParam = params.get("client");
       const assigneeParam = params.get("assignee");
+      const statusParam = params.get("status");
       const viewParam = params.get("view");
 
       if (clientParam) setClient(clientParam);
       if (assigneeParam) setAssignee(assigneeParam);
+      if (statusParam) setStatusFilter(statusParam);
       if (viewParam === "board" || viewParam === "list") setView(viewParam);
     }
   }, []);
@@ -120,6 +123,10 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
     if (assignee !== "all") {
       if (assignee === "unassigned" && j.assignedToName) return false;
       if (assignee !== "unassigned" && j.assignedToName !== assignee) return false;
+    }
+    if (statusFilter !== "all") {
+      const col = COLUMNS.find((c) => c.key === statusFilter);
+      if (col && !col.statuses.includes(j.status)) return false;
     }
     if (staleOnly && !(j.updatedAt <= STALE_BEFORE)) return false;
     return true;
@@ -228,6 +235,15 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
           <option value="unassigned">Unassigned</option>
           {assigneeNames.map((n) => (
             <option key={n} value={n}>{n}</option>
+          ))}
+        </Select>
+
+        <Select value={statusFilter} onChange={setStatusFilter} label="Status">
+          <option value="all">All statuses</option>
+          {COLUMNS.map((col) => (
+            <option key={col.key} value={col.key}>
+              {col.label}
+            </option>
           ))}
         </Select>
 
