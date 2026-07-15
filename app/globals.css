@@ -113,6 +113,24 @@ body {
 .lp-pulse { animation: lp-pulse 2.4s ease-in-out infinite; }
 .lp-in { animation: lp-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* ── Review deck (deck-*) ───────────────────────────────────────────────
+   The client Review queue as a stack: the active card fans out over the next
+   pending jobs, and the decided card flies away to reveal the next. */
+@keyframes deck-in {
+  from { opacity: 0; transform: translateY(44px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes deck-out-accept {
+  to { opacity: 0; transform: translateX(64px) rotate(3deg) scale(0.97); }
+}
+@keyframes deck-out-decline {
+  to { opacity: 0; transform: translateX(-64px) rotate(-3deg) scale(0.97); }
+}
+.deck-in { animation: deck-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.deck-out-accept { animation: deck-out-accept 320ms ease-in forwards; }
+.deck-out-decline { animation: deck-out-decline 320ms ease-in forwards; }
+
 @media (prefers-reduced-motion: reduce) {
   .lp-float, .lp-meter, .lp-pulse, .lp-in { animation: none !important; }
+  .deck-in, .deck-out-accept, .deck-out-decline { animation: none !important; }
 }
