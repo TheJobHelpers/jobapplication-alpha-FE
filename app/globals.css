@@ -150,3 +150,19 @@ body {
   .cq-step-in { animation: none !important; }
 }
 
+.cq-review-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-border) transparent;
+}
+.cq-review-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.cq-review-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.cq-review-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--panel-border);
+  border-radius: 3px;
+}
+
+
