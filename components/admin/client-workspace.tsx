@@ -758,23 +758,27 @@ function QuestionnaireTab({
             </div>
           </div>
 
-          {/* Link block — only when a token exists */}
-          {q.token && q.status !== "not_sent" && (
+          {/* Link block — visible while questionnaire is not yet completed */}
+          {(q.status === "sent" || q.status === "in_progress") && (
             <div className="flex-1 min-w-[220px]">
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted mb-2">
                 Questionnaire link
               </p>
-              <div className="flex items-center gap-2 rounded-md border border-panel-border/60 bg-panel/30 px-3 py-1.5">
-                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--accent)]">
-                  {`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/q/${q.token}`}
-                </span>
-                <button
-                  onClick={() => navigator.clipboard?.writeText(`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== "undefined" ? window.location.origin : "")}/q/${q.token}`)}
-                  className="shrink-0 rounded border border-zinc-700 px-2 py-0.5 text-[10.5px] font-semibold text-zinc-300 hover:bg-zinc-800/60 transition-colors"
-                >
-                  Copy
-                </button>
-              </div>
+              {q.token ? (
+                <div className="flex items-center gap-2 rounded-md border border-panel-border/60 bg-panel/30 px-3 py-1.5">
+                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--accent)]">
+                    {`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== "undefined" ? window.location.origin : "")}/q/${q.token}`}
+                  </span>
+                  <button
+                    onClick={() => navigator.clipboard?.writeText(`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== "undefined" ? window.location.origin : "")}/q/${q.token}`)}
+                    className="shrink-0 rounded border border-zinc-700 px-2 py-0.5 text-[10.5px] font-semibold text-zinc-300 hover:bg-zinc-800/60 transition-colors"
+                  >
+                    Copy
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[11.5px] text-zinc-600 italic">Link not generated yet — resend to create one.</p>
+              )}
             </div>
           )}
         </div>
