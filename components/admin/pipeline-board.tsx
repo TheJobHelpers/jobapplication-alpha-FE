@@ -90,6 +90,7 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
   const [assignee, setAssignee] = useState("all");
   const [client, setClient] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [staleOnly, setStaleOnly] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [view, setView] = useState<"board" | "list">("board");
@@ -127,6 +128,14 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
     if (statusFilter !== "all") {
       const col = COLUMNS.find((c) => c.key === statusFilter);
       if (col && !col.statuses.includes(j.status)) return false;
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = j.title.toLowerCase().includes(q);
+      const matchCompany = j.company.toLowerCase().includes(q);
+      const matchClient = j.clientName.toLowerCase().includes(q);
+      const matchAssignee = j.assignedToName?.toLowerCase().includes(q) ?? false;
+      if (!matchTitle && !matchCompany && !matchClient && !matchAssignee) return false;
     }
     if (staleOnly && !(j.updatedAt <= STALE_BEFORE)) return false;
     return true;
@@ -182,99 +191,135 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
         </div>
       </header>
 
-      {/* Controls */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Segment label="View">
-          <Seg active={view === "board"} onClick={() => setView("board")}>Board</Seg>
-          <Seg active={view === "list"} onClick={() => setView("list")}>List</Seg>
-        </Segment>
+      {/* Controls / Filter Bar */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 bg-panel/10 border border-panel-border/30 rounded-lg p-3">
+        {/* Left Side: Layout Modes */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Segment label="View">
+            <Seg active={view === "board"} onClick={() => setView("board")}>Board</Seg>
+            <Seg active={view === "list"} onClick={() => setView("list")}>List</Seg>
+          </Segment>
 
-        {view === "board" && (
-          <Segment label="Group">
-            <Seg
-              active={group === "none"}
-              onClick={() => {
-                setGroup("none");
-                setCollapsedLanes(new Set());
-              }}
-            >
-              None
-            </Seg>
-            <Seg
-              active={group === "client"}
-              onClick={() => {
-                setGroup("client");
-                setCollapsedLanes(new Set());
-              }}
-            >
-              Client
-            </Seg>
-            {canMemberLens && (
+          {view === "board" && (
+            <Segment label="Group">
               <Seg
-                active={group === "member"}
+                active={group === "none"}
                 onClick={() => {
-                  setGroup("member");
+                  setGroup("none");
                   setCollapsedLanes(new Set());
                 }}
               >
-                Assignee
+                None
               </Seg>
-            )}
-          </Segment>
-        )}
+              <Seg
+                active={group === "client"}
+                onClick={() => {
+                  setGroup("client");
+                  setCollapsedLanes(new Set());
+                }}
+              >
+                Client
+              </Seg>
+              {canMemberLens && (
+                <Seg
+                  active={group === "member"}
+                  onClick={() => {
+                    setGroup("member");
+                    setCollapsedLanes(new Set());
+                  }}
+                >
+                  Assignee
+                </Seg>
+              )}
+            </Segment>
+          )}
 
-        <Select value={client} onChange={setClient} label="Client">
-          <option value="all">All clients</option>
-          {clientNames.map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </Select>
+          {view === "board" && group !== "none" && (
+            <button
+              onClick={() => {
+                const allCollapsed = collapsedLanes.size === lanes.length;
+                if (allCollapsed) {
+                  setCollapsedLanes(new Set());
+                } else {
+                  setCollapsedLanes(new Set(lanes.map((l) => l.key)));
+                }
+              }}
+              className="rounded-md border border-panel-border bg-panel/35 px-2.5 py-1 text-[11px] font-semibold text-muted hover:text-zinc-200 transition-colors"
+            >
+              {collapsedLanes.size === lanes.length ? "Expand all lanes" : "Collapse all lanes"}
+            </button>
+          )}
+        </div>
 
-        <Select value={assignee} onChange={setAssignee} label="Assignee">
-          <option value="all">All assignees</option>
-          <option value="unassigned">Unassigned</option>
-          {assigneeNames.map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </Select>
+        {/* Right Side: Search & Filter dropdowns */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search bar */}
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search title, client..."
+              className="w-40 rounded-md border border-panel-border/60 bg-panel/35 pl-7 pr-2.5 py-1 text-xs text-zinc-200 outline-none focus:border-zinc-500 hover:border-zinc-400 placeholder:text-zinc-600 transition-all"
+            />
+            <svg className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
 
-        <Select value={statusFilter} onChange={setStatusFilter} label="Status">
-          <option value="all">All statuses</option>
-          {COLUMNS.map((col) => (
-            <option key={col.key} value={col.key}>
-              {col.label}
-            </option>
-          ))}
-        </Select>
+          <Select value={client} onChange={setClient} label="Client">
+            <option value="all">All clients</option>
+            {clientNames.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </Select>
 
-        <button
-          onClick={() => setStaleOnly((v) => !v)}
-          className={
-            "rounded-md border px-2.5 py-1.5 text-[12px] font-medium transition-colors " +
-            (staleOnly
-              ? "border-status-interview/60 bg-status-interview/10 text-status-interview"
-              : "border-panel-border text-muted hover:text-zinc-200")
-          }
-        >
-          Stale &gt; 5 days
-        </button>
+          <Select value={assignee} onChange={setAssignee} label="Assignee">
+            <option value="all">All assignees</option>
+            <option value="unassigned">Unassigned</option>
+            {assigneeNames.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </Select>
 
-        {view === "board" && group !== "none" && (
+          <Select value={statusFilter} onChange={setStatusFilter} label="Status">
+            <option value="all">All statuses</option>
+            {COLUMNS.map((col) => (
+              <option key={col.key} value={col.key}>
+                {col.label}
+              </option>
+            ))}
+          </Select>
+
           <button
-            onClick={() => {
-              const allCollapsed = collapsedLanes.size === lanes.length;
-              if (allCollapsed) {
-                setCollapsedLanes(new Set());
-              } else {
-                setCollapsedLanes(new Set(lanes.map((l) => l.key)));
-              }
-            }}
-            className="rounded-md border border-panel-border bg-panel/20 px-2.5 py-1.5 text-[12px] font-medium text-muted hover:text-zinc-200 transition-colors"
+            onClick={() => setStaleOnly((v) => !v)}
+            className={
+              "rounded-md border px-2.5 py-1 text-xs font-semibold tracking-wide transition-all " +
+              (staleOnly
+                ? "border-status-interview/60 bg-status-interview/10 text-status-interview"
+                : "border-panel-border/60 text-muted hover:text-zinc-200 hover:border-zinc-400")
+            }
           >
-            {collapsedLanes.size === lanes.length ? "Expand all lanes" : "Collapse all lanes"}
+            Stale &gt; 5 days
           </button>
-        )}
+
+          {(client !== "all" || assignee !== "all" || statusFilter !== "all" || staleOnly || searchQuery) && (
+            <button
+              onClick={() => {
+                setClient("all");
+                setAssignee("all");
+                setStatusFilter("all");
+                setStaleOnly(false);
+                setSearchQuery("");
+              }}
+              className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-300 transition-colors ml-1"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
+
 
       {/* Board or List View */}
       {view === "board" ? (
