@@ -271,7 +271,7 @@ export default function QuestionnairePage({
                 return (
                   <div key={s.id} className={isFirst ? "flex justify-between items-start gap-4 py-4" : "flex justify-between items-start gap-4 py-4.5"}>
                     <div className="space-y-1.5 flex-1">
-                      <span className="text-[13px] font-medium text-muted/70 block leading-snug text-left">{s.title}</span>
+                      <span className="text-sm font-medium text-foreground/80 block leading-snug text-left">{s.title}</span>
                       <div className="text-left mt-1">{renderAnswerSummary(s, answers)}</div>
                     </div>
                     <button
@@ -578,7 +578,7 @@ function renderAnswerSummary(s: Step, answers: Answers) {
   switch (s.kind) {
     case "choice":
     case "text":
-      return <span className="text-sm font-semibold text-foreground">{String(value) || <span className="text-muted/50 italic">Empty</span>}</span>;
+      return <span className="text-base font-semibold text-foreground">{String(value) || <span className="text-muted/50 italic text-sm">Empty</span>}</span>;
 
     case "fields": {
       const record = value as Record<string, string>;
@@ -589,7 +589,7 @@ function renderAnswerSummary(s: Step, answers: Answers) {
             if (!val) return null;
             return (
               <div key={f.key}>
-                <span className="text-[10px] text-muted uppercase tracking-wider block">{f.label}</span>
+                <span className="text-[10px] text-muted font-semibold uppercase tracking-wider block">{f.label}</span>
                 <span className="text-sm font-semibold text-foreground block mt-0.5">{val}</span>
               </div>
             );
@@ -602,7 +602,7 @@ function renderAnswerSummary(s: Step, answers: Answers) {
       const obj = value as { answer?: string; detail?: string };
       if (!obj.answer) return <span className="text-muted/50 italic text-sm">Not answered</span>;
       return (
-        <div className="text-sm text-foreground font-semibold">
+        <div className="text-base text-foreground font-semibold">
           <span className="capitalize">{obj.answer}</span>
           {obj.answer === "yes" && obj.detail && (
             <div className="text-xs text-muted font-normal mt-1.5 border-l-2 border-panel-border pl-2.5 italic">
@@ -616,7 +616,7 @@ function renderAnswerSummary(s: Step, answers: Answers) {
     case "range": {
       const obj = value as { from?: string; to?: string; note?: string };
       return (
-        <div className="text-sm text-foreground font-semibold">
+        <div className="text-base text-foreground font-semibold">
           {obj.from || "—"} to {obj.to || "—"} {s.unit}/yr
           {obj.note && (
             <div className="text-xs text-muted font-normal mt-1.5 border-l-2 border-panel-border pl-2.5 italic text-left">
@@ -641,7 +641,7 @@ function renderAnswerSummary(s: Step, answers: Answers) {
                   if (!val) return null;
                   return (
                     <div key={f.key}>
-                      <span className="text-[10px] text-muted uppercase tracking-wider block">{f.label}</span>
+                      <span className="text-[10px] text-muted font-semibold uppercase tracking-wider block">{f.label}</span>
                       <span className="text-sm font-semibold text-foreground block mt-0.5">{val}</span>
                     </div>
                   );
