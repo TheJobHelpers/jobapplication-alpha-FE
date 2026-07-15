@@ -170,16 +170,17 @@ export function PipelineBoard({ jobs: initial }: { jobs: ApplicationJob[] }) {
 
   return (
     <div className="px-6 py-6">
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
-            Pipeline
-          </p>
-          <h1 className="mt-1 text-[16px] font-semibold">Applications</h1>
-        </div>
-        <p className="text-[11px] text-zinc-500">
-          Drag cards between columns to move status — your role limits where they can go.
+      <header className="mb-6">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
+          Pipeline
         </p>
+        <h1 className="mt-1 text-[20px] font-semibold text-zinc-100">Applications</h1>
+        <p className="mt-1 text-xs text-muted leading-relaxed max-w-2xl">
+          Track and manage candidates across sourcing phases. Toggle between <strong>Kanban Board</strong> and <strong>List</strong> layouts, apply filters to isolate clients or assignees, or group swimlanes to inspect individual workloads.
+        </p>
+        <div className="mt-3 text-[11.5px] text-zinc-400 font-medium bg-panel/30 border border-panel-border/40 rounded px-2.5 py-1 inline-block">
+          Showing {filtered.length} of {jobs.length} total active application{jobs.length === 1 ? "" : "s"}
+        </div>
       </header>
 
       {/* Controls */}
@@ -503,12 +504,14 @@ function Select({
   children: React.ReactNode;
 }) {
   return (
-    <label className="flex items-center gap-1.5">
-      <span className="sr-only">{label}</span>
+    <label className="flex items-center gap-2">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
+        {label}
+      </span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-panel-border bg-panel px-2 py-1.5 text-[12px] text-zinc-200 outline-none focus:border-zinc-600"
+        className="rounded-md border border-panel-border bg-panel px-2.5 py-1.5 text-[12px] text-zinc-200 outline-none focus:border-zinc-500 cursor-pointer transition-colors hover:border-zinc-400"
       >
         {children}
       </select>
