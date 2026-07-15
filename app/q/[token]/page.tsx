@@ -11,6 +11,7 @@ import { Logo } from "@/components/ui/logo";
 import { publicQuestionnaire } from "@/lib/api";
 import { Answers, CQFO_STEPS, Step, isStepComplete } from "@/lib/cqfo";
 import { deriveFromAnswers } from "@/lib/cqfo-derive";
+import confetti from "canvas-confetti";
 
 // Where in CQFO_STEPS to resume, based on which required questions are still
 // unanswered (optional ones count as "complete" whether answered or not, same
@@ -115,6 +116,43 @@ export default function QuestionnairePage({
       publicQuestionnaire.saveProgress(token, a).catch(() => {});
     }
   }, [index, load, token]);
+
+  // Fire confetti when reaching the outro step.
+  useEffect(() => {
+    if (step.kind === "outro") {
+      // Primary center burst
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+      
+      // Secondary continuous side-blasts for 2 seconds
+      const duration = 2 * 1000;
+      const end = Date.now() + duration;
+
+      const frame = () => {
+        confetti({
+          particleCount: 2,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 }
+        });
+        confetti({
+          particleCount: 2,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 }
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      };
+      
+      setTimeout(frame, 200);
+    }
+  }, [step.kind]);
 
   const step = CQFO_STEPS[index];
   const questionSteps = useMemo(() => CQFO_STEPS.filter((s) => s.kind !== "intro" && s.kind !== "outro"), []);
