@@ -187,7 +187,7 @@ export default function QuestionnairePage({
                         <span className="text-muted/30 text-xs select-none">|</span>
                         <button onClick={() => setShowReviewModal(true)}
                           className="text-xs text-muted hover:text-foreground hover:underline transition-colors">
-                          Review answers →
+                          Review answers
                         </button>
                       </div>
                     ) : (
