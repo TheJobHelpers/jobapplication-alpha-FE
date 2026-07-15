@@ -219,7 +219,7 @@ export function ClientWorkspace({
           </div>
           <div className="flex items-center gap-5">
             <span className="text-[11px] text-muted">
-              Owner <span className="text-zinc-300">{client.ownerName}</span>
+              Assignee <span className="text-zinc-300">{client.ownerName}</span>
             </span>
             <QuotaMeter filled={filled} target={client.quotaApps} />
             <WeekSelector week={week} onChange={setWeek} />
@@ -268,29 +268,31 @@ export function ClientWorkspace({
           )}
         </div>
 
-        {/* Right panel: Add jobs (search is gone) */}
-        <aside className="w-full shrink-0 border-t border-panel-border lg:w-[340px] lg:border-l lg:border-t-0">
-          <div className="p-5 lg:sticky lg:top-0">
-            <h2 className="text-[13px] font-semibold">Add jobs</h2>
-            <p className="mt-1 text-[11.5px] text-muted">
-              Sourced outside the portal — add one or import a batch.
-            </p>
-            <div className="mt-4">
-              {editable && canAddJobs(user) ? (
-                <AddJobsForm
-                  clientId={client.id}
-                  clientName={client.name}
-                  onAdd={handleAdd}
-                />
-              ) : (
-                <p className="text-[12px] text-zinc-500">
-                  You can view this client but not edit it. Only the owner (
-                  {client.ownerName}) and managers can add jobs.
-                </p>
-              )}
+        {/* Right panel: Add jobs (search is gone) — visible only when managing the active week */}
+        {tab === "week" && (
+          <aside className="w-full shrink-0 border-t border-panel-border lg:w-[340px] lg:border-l lg:border-t-0">
+            <div className="p-5 lg:sticky lg:top-0">
+              <h2 className="text-[13px] font-semibold">Add jobs</h2>
+              <p className="mt-1 text-[11.5px] text-muted">
+                Sourced outside the portal — add one or import a batch.
+              </p>
+              <div className="mt-4">
+                {editable && canAddJobs(user) ? (
+                  <AddJobsForm
+                    clientId={client.id}
+                    clientName={client.name}
+                    onAdd={handleAdd}
+                  />
+                ) : (
+                  <p className="text-[12px] text-zinc-500">
+                    You can view this client but not edit it. Only the assignee (
+                    {client.ownerName}) and managers can add jobs.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        </aside>
+          </aside>
+        )}
       </div>
 
       {/* Action bar */}
@@ -577,7 +579,7 @@ function Profile({ client }: { client: Client }) {
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <Panel className="p-5">
           <SectionLabel>Account</SectionLabel>
-          <Field label="Owner" value={client.ownerName} />
+          <Field label="Assignee" value={client.ownerName} />
           <Field label="Tier" value={client.tier} />
           <Field label="Stage" value={client.stage} />
           <Field label="Weekly quota" value={`${client.quotaApps} applications`} />
